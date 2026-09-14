@@ -1,11 +1,8 @@
 # Context for Codex working on Outfolio
 
-Save this file as `AGENTS.md` in the root of the Outfolio repository (named
-differently here only because Apex's own repo, where this thesis lives,
-gitignores that exact filename repo-wide for an unrelated reason). It is
-grounding for whatever AI coding tool works on this project — currently
-Codex — not documentation for human contributors, though a human reading it
-should understand the project the same way.
+This is grounding for whatever AI coding tool works on this project —
+currently Codex — not documentation for human contributors, though a human
+reading it should understand the project the same way.
 
 ## What this project actually is, and why it matters that you read this file
 
