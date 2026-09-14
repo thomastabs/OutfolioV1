@@ -118,19 +118,26 @@ around it.
 
 ## What to record as you go
 
-A contemporaneous log is being kept alongside this project
-(`demonstration-log.local.md` in the thesis repo, not this one) recording,
-per story: what you drafted first, what got accepted or changed and why, the
-gate outcome, and anywhere the process felt awkward or got bypassed. You
-don't need to maintain that file yourself, but you should make it easy for
-the human to fill in accurately — when you produce a draft artefact (a
+The primary contemporaneous log for this demonstration is
+`demonstration-log.local.md` in this OutfolioV1 repository. It is intentionally
+local/gitignored and replaces the old thesis-repo copy. Treat it as the
+working evidence log for the project, but do not fabricate missing information
+after the fact: if an earlier entry has no timestamp, hat worn, or gate outcome,
+leave that gap visible rather than inventing it.
+
+For every artefact you produce or revise, state the log fields in the
+conversation so the human can record them accurately, and update
+`demonstration-log.local.md` when asked. The log records, per story/task:
+what you drafted first, what got accepted or changed and why, timestamps,
+the hat worn for the human decision, the gate outcome, and anywhere the
+process felt awkward or got bypassed. When you produce a draft artefact (a
 scenario, a spec, a test script), say so plainly and distinctly from your
 final, revised output, so "what the AI produced first" and "what it looks
 like after review" stay distinguishable in the conversation history even if
 they're not both saved as separate files.
 
-The log also tracks three things specifically, each needing something from
-you to be fillable without the human reconstructing it afterward:
+The log also tracks governance metrics specifically, each needing something
+from you to be fillable without the human reconstructing it afterward:
 
 - **Traceability.** Every artefact you produce, a scenario, a spec, a test
   script, generated code, a deployment note, should state plainly which
@@ -149,14 +156,22 @@ you to be fillable without the human reconstructing it afterward:
   say that plainly rather than defending it — that's a real, loggable
   signal, not a failure to hide.
 
-The log records a "hat worn" for every decision (Product Owner, Tech Lead,
-QA, etc., per the framework's "hats, not people" design) — that's the
-human's field to fill in, since accepting/rejecting/deciding is always a
-human act in this framework, but it's worth knowing it exists: if a decision
-point isn't clearly reached (an artefact you produced was just... used,
-without a visible accept/reject moment), flag that rather than letting it
-pass silently, since it's exactly the kind of gate-bypass the log's Friction
-field exists to catch.
+- **Decision metadata.** For every artefact or gate-relevant response, state
+  the timestamp, phase, draft status (`first draft`, `after review`, or
+  `final`), traceability ids, and whether a human decision/gate is now needed.
+  The log records a "hat worn" for every decision (Product Owner, Tech Lead,
+  QA, etc., per the framework's "hats, not people" design). That is the
+  human's field to fill in, since accepting/rejecting/deciding is always a
+  human act in this framework, but you must prompt for or surface it whenever
+  a decision point is reached. If a decision point is not clearly reached
+  (an artefact you produced was just used without a visible accept/reject
+  moment), flag that rather than letting it pass silently, since it is exactly
+  the kind of gate-bypass the log's friction fields exist to catch.
+- **Deployment and maintenance metadata.** Before deployment/infra output,
+  state whether a real infrastructure delta requires it. For maintenance
+  issues, state whether the context was narrowed to the report, test evidence,
+  and implicated fragment as the framework requires, or whether full-project
+  context was provided instead.
 
 ## What not to do
 
