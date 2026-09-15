@@ -176,4 +176,85 @@ describe('ProjectEditor', () => {
 
     expect(await screen.findByRole('button', { name: /saving/i })).toBeDisabled();
   });
+
+  it('publishes a draft project and reflects the updated visibility', async () => {
+    const user = userEvent.setup();
+    const onProjectUpdated = jest.fn();
+    const publishedProject = {
+      ...editableProject,
+      visibility: 'published',
+      publishedAt: '2026-09-15T21:00:00.000Z',
+    };
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => publishedProject,
+    } as Response);
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={onProjectUpdated} />);
+
+    await user.click(screen.getByRole('button', { name: /publish project/i }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/publish', {
+        method: 'POST',
+      }),
+    );
+    expect(onProjectUpdated).toHaveBeenCalledWith(publishedProject);
+    expect(await screen.findByText('Project published.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^visibility$/i)).toHaveValue('published');
+  });
+
+  it('unpublishes a published project and reflects the updated visibility', async () => {
+    const user = userEvent.setup();
+    const onProjectUpdated = jest.fn();
+    const publishedProject = {
+      ...editableProject,
+      visibility: 'published',
+      publishedAt: '2026-09-15T21:00:00.000Z',
+    };
+    const unpublishedProject = {
+      ...publishedProject,
+      visibility: 'unpublished',
+      publishedAt: null,
+    };
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => unpublishedProject,
+    } as Response);
+
+    render(<ProjectEditor project={publishedProject} onProjectUpdated={onProjectUpdated} />);
+
+    await user.click(screen.getByRole('button', { name: /unpublish project/i }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/unpublish', {
+        method: 'POST',
+      }),
+    );
+    expect(onProjectUpdated).toHaveBeenCalledWith(unpublishedProject);
+    expect(await screen.findByText('Project unpublished.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^visibility$/i)).toHaveValue('unpublished');
+  });
+
+  it('shows publish validation errors returned by the backend', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        error: 'validation_failed',
+        fields: {
+          summary: 'Summary is required before publishing.',
+        },
+      }),
+    } as Response);
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /publish project/i }));
+
+    expect(await screen.findByText('Summary is required before publishing.')).toBeInTheDocument();
+  });
 });

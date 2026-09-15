@@ -58,7 +58,7 @@ describe('GET /api/v1/profile/public/:username', () => {
       include: { profile: true },
     });
     expect(deps.prisma.project.findMany).toHaveBeenCalledWith({
-      where: { userId: user.id, visibility: 'PUBLISHED' },
+      where: { ownerId: user.id, visibility: 'PUBLISHED' },
       select: { id: true, title: true, slug: true, summary: true },
       orderBy: { title: 'asc' },
     });
@@ -76,6 +76,19 @@ describe('GET /api/v1/profile/public/:username', () => {
       },
       projects,
     });
+  });
+
+  it('requests only published projects for the public profile response', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler({ params: { username: 'ada' } } as never, res as never);
+
+    expect(deps.prisma.project.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { ownerId: user.id, visibility: 'PUBLISHED' },
+    }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      projects,
+    }));
   });
 
   it('returns profile data for unlisted profiles by direct URL', async () => {

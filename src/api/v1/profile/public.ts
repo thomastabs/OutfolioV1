@@ -28,7 +28,7 @@ type PublicProfileDependencies = {
     };
     project?: {
       findMany(args: {
-        where: { userId: string; visibility: 'PUBLISHED' };
+        where: { ownerId: string; visibility: 'PUBLISHED' };
         select: { id: true; title: true; slug: true; summary: true };
         orderBy: { title: 'asc' };
       }): Promise<PublicProjectRecord[]>;
@@ -87,7 +87,7 @@ export function createPublicProfileHandler(deps: PublicProfileDependencies) {
 
       const projects = deps.prisma.project
         ? await deps.prisma.project.findMany({
-            where: { userId: user.id, visibility: 'PUBLISHED' },
+            where: { ownerId: user.id, visibility: 'PUBLISHED' },
             select: { id: true, title: true, slug: true, summary: true },
             orderBy: { title: 'asc' },
           })

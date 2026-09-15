@@ -83,6 +83,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [visibilityAction, setVisibilityAction] = useState<'publish' | 'unpublish' | null>(null);
 
   useEffect(() => {
     const nextState = initialState(project);
@@ -197,6 +198,40 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     }
   }
 
+  async function handleVisibilityAction(action: 'publish' | 'unpublish') {
+    if (!project) return;
+
+    setMessage('');
+    setFieldErrors({});
+    setVisibilityAction(action);
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/${action}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (response.status === 422) {
+        setFieldErrors((data.fields ?? {}) as FieldErrors);
+        return;
+      }
+
+      if (!response.ok) {
+        setMessage(action === 'publish' ? 'Project could not be published.' : 'Project could not be unpublished.');
+        return;
+      }
+
+      const updatedProject = data as ProjectData;
+      setVisibility(updatedProject.visibility);
+      onProjectUpdated?.(updatedProject);
+      setMessage(action === 'publish' ? 'Project published.' : 'Project unpublished.');
+    } catch {
+      setMessage(action === 'publish' ? 'Project could not be published.' : 'Project could not be unpublished.');
+    } finally {
+      setVisibilityAction(null);
+    }
+  }
+
   return (
     <form aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div>
@@ -266,6 +301,16 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save project' : 'Create project')}
       </button>
+      {isEditMode && visibility === 'draft' ? (
+        <button type="button" onClick={() => handleVisibilityAction('publish')} disabled={visibilityAction !== null}>
+          {visibilityAction === 'publish' ? 'Publishing...' : 'Publish project'}
+        </button>
+      ) : null}
+      {isEditMode && visibility === 'published' ? (
+        <button type="button" onClick={() => handleVisibilityAction('unpublish')} disabled={visibilityAction !== null}>
+          {visibilityAction === 'unpublish' ? 'Unpublishing...' : 'Unpublish project'}
+        </button>
+      ) : null}
     </form>
   );
 }
