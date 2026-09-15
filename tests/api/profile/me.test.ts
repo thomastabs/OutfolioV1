@@ -266,6 +266,25 @@ describe('PUT /api/v1/profile/me', () => {
     });
   });
 
+  it('returns 422 and does not update when visibility is invalid', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      body: { ...validBody, visibility: 'friends-only' },
+    } as never, res as never);
+
+    expect(deps.prisma.profile.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'validation_error',
+      message: 'Profile input is invalid.',
+      fields: {
+        visibility: 'Visibility must be public, private, or unlisted.',
+      },
+    });
+  });
+
   it('returns 401 when the session is missing or invalid', async () => {
     const { deps, handler, res } = setup({
       validateSession: jest.fn().mockReturnValue({ valid: false, reason: 'invalid' }),

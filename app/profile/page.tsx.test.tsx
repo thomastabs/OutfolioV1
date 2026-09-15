@@ -49,6 +49,7 @@ describe('ProfilePage session guard', () => {
     expect(within(profileSection).getByText('Ada Lovelace')).toBeInTheDocument();
     expect(within(profileSection).getByText('Builds rigorous developer tools.')).toBeInTheDocument();
     expect(within(profileSection).getByText('7 years')).toBeInTheDocument();
+    expect(within(profileSection).getByText('Public')).toBeInTheDocument();
     expect(within(profileSection).getByText('OutSystems Associate Reactive Developer')).toBeInTheDocument();
     expect(within(profileSection).getByText('AWS Developer')).toBeInTheDocument();
     expect(within(profileSection).getByRole('link', { name: 'https://example.com/ada' })).toHaveAttribute('href', 'https://example.com/ada');

@@ -91,6 +91,7 @@ export default function ProfilePage() {
 
 function ProfileDetails({ profile }: { profile: ProfileData }) {
   const experienceText = profile.experienceYears > 0 ? `${profile.experienceYears} ${profile.experienceYears === 1 ? 'year' : 'years'}` : 'No experience added yet';
+  const visibilityText = profile.visibility.charAt(0).toUpperCase() + profile.visibility.slice(1);
 
   return (
     <section aria-label="Developer profile">
@@ -103,6 +104,10 @@ function ProfileDetails({ profile }: { profile: ProfileData }) {
         <div>
           <dt>Experience</dt>
           <dd>{experienceText}</dd>
+        </div>
+        <div>
+          <dt>Visibility</dt>
+          <dd>{visibilityText}</dd>
         </div>
         <div>
           <dt>Certifications</dt>

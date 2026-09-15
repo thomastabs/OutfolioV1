@@ -17,7 +17,7 @@ describe('Profile Prisma schema', () => {
     expect(schema).toMatch(/experienceYears\s+Int/);
     expect(schema).toMatch(/certifications\s+String\[\]/);
     expect(schema).toMatch(/links\s+String\[\]/);
-    expect(schema).toMatch(/visibility\s+ProfileVisibility/);
+    expect(schema).toMatch(/visibility\s+ProfileVisibility\s+@default\(PRIVATE\)/);
   });
 
   it('defines visibility values mapped to public, private, and unlisted', () => {

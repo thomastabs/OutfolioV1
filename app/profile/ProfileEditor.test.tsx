@@ -28,6 +28,9 @@ describe('ProfileEditor', () => {
     expect(screen.getByLabelText(/certifications/i)).toHaveValue('OutSystems Associate Reactive Developer');
     expect(screen.getByLabelText(/public links/i)).toHaveValue('https://example.com/ada');
     expect(screen.getByLabelText(/visibility/i)).toHaveValue('public');
+    expect(screen.getByRole('option', { name: 'Public' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Private' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Unlisted' })).toBeInTheDocument();
   });
 
   it('submits valid profile updates and reports the saved profile', async () => {
@@ -116,6 +119,51 @@ describe('ProfileEditor', () => {
     await user.click(screen.getByRole('button', { name: /save profile/i }));
 
     expect(await screen.findByText('Links must be valid HTTP or HTTPS URLs.')).toBeInTheDocument();
+    expect(onProfileSaved).not.toHaveBeenCalled();
+  });
+
+  it.each(['public', 'private', 'unlisted'])('submits the selected %s visibility value', async (visibility) => {
+    const user = userEvent.setup();
+    const onProfileSaved = jest.fn();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...profile, visibility }),
+    } as Response);
+
+    render(<ProfileEditor profile={profile} onProfileSaved={onProfileSaved} />);
+
+    await user.selectOptions(screen.getByLabelText(/visibility/i), visibility);
+    await user.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/profile/me', expect.objectContaining({
+        body: expect.stringContaining(`"visibility":"${visibility}"`),
+      })),
+    );
+    expect(onProfileSaved).toHaveBeenCalledWith(expect.objectContaining({ visibility }));
+  });
+
+  it('displays API validation errors for visibility', async () => {
+    const user = userEvent.setup();
+    const onProfileSaved = jest.fn();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        error: 'validation_error',
+        message: 'Profile input is invalid.',
+        fields: {
+          visibility: 'Visibility must be public, private, or unlisted.',
+        },
+      }),
+    } as Response);
+
+    render(<ProfileEditor profile={profile} onProfileSaved={onProfileSaved} />);
+
+    await user.click(screen.getByRole('button', { name: /save profile/i }));
+
+    expect(await screen.findByText('Visibility must be public, private, or unlisted.')).toBeInTheDocument();
     expect(onProfileSaved).not.toHaveBeenCalled();
   });
 
