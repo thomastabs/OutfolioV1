@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import ProfilePage from './page';
 
 const replace = jest.fn();
@@ -45,13 +45,14 @@ describe('ProfilePage session guard', () => {
     expect(screen.getByText('Profile workspace')).toBeInTheDocument();
     expect(screen.getByText('Loading profile...')).toBeInTheDocument();
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/profile/me'));
-    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
-    expect(screen.getByText('Builds rigorous developer tools.')).toBeInTheDocument();
-    expect(screen.getByText('7 years')).toBeInTheDocument();
-    expect(screen.getByText('OutSystems Associate Reactive Developer')).toBeInTheDocument();
-    expect(screen.getByText('AWS Developer')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'https://example.com/ada' })).toHaveAttribute('href', 'https://example.com/ada');
-    expect(screen.getByRole('link', { name: 'https://github.com/ada' })).toHaveAttribute('href', 'https://github.com/ada');
+    const profileSection = await screen.findByRole('region', { name: /developer profile/i });
+    expect(within(profileSection).getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(profileSection).getByText('Builds rigorous developer tools.')).toBeInTheDocument();
+    expect(within(profileSection).getByText('7 years')).toBeInTheDocument();
+    expect(within(profileSection).getByText('OutSystems Associate Reactive Developer')).toBeInTheDocument();
+    expect(within(profileSection).getByText('AWS Developer')).toBeInTheDocument();
+    expect(within(profileSection).getByRole('link', { name: 'https://example.com/ada' })).toHaveAttribute('href', 'https://example.com/ada');
+    expect(within(profileSection).getByRole('link', { name: 'https://github.com/ada' })).toHaveAttribute('href', 'https://github.com/ada');
   });
 
   it('shows placeholders when profile fields are empty', async () => {

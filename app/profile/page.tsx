@@ -3,16 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-
-type ProfileData = {
-  userId: string;
-  name: string;
-  bio: string;
-  experienceYears: number;
-  certifications: string[];
-  links: string[];
-  visibility: string;
-};
+import { ProfileEditor, type ProfileData } from './ProfileEditor';
 
 export default function ProfilePage() {
   const { replace } = useRouter();
@@ -88,7 +79,12 @@ export default function ProfilePage() {
       {profileStatus === 'loading' ? <p>Loading profile...</p> : null}
       {profileStatus === 'not_found' ? <p>No profile has been created yet.</p> : null}
       {profileStatus === 'error' ? <p>Profile information is unavailable right now.</p> : null}
-      {profile ? <ProfileDetails profile={profile} /> : null}
+      {profile ? (
+        <>
+          <ProfileDetails profile={profile} />
+          <ProfileEditor profile={profile} onProfileSaved={setProfile} />
+        </>
+      ) : null}
     </main>
   );
 }
