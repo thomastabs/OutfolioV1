@@ -14,7 +14,7 @@ type PublicProfileResponse = {
     links: string[];
     visibility: string;
   };
-  projects: Array<{
+  publishedProjects: Array<{
     id: string;
     title: string;
     slug: string;
@@ -142,9 +142,9 @@ export default function PublicDeveloperProfilePage() {
 
       <section aria-label="Published projects">
         <h2>Published projects</h2>
-        {data.projects.length > 0 ? (
+        {data.publishedProjects.length > 0 ? (
           <ul>
-            {data.projects.map((project) => (
+            {data.publishedProjects.map((project) => (
               <li key={project.id}>
                 <h3>{project.title}</h3>
                 <p>{project.summary || 'No summary added yet.'}</p>

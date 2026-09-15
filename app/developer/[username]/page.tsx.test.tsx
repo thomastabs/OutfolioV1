@@ -29,7 +29,7 @@ describe('PublicDeveloperProfilePage', () => {
           links: ['https://example.com/ada'],
           visibility: 'public',
         },
-        projects: [
+        publishedProjects: [
           {
             id: 'project-1',
             title: 'Portfolio Builder',
@@ -52,6 +52,31 @@ describe('PublicDeveloperProfilePage', () => {
     expect(screen.getByRole('heading', { name: 'Published projects' })).toBeInTheDocument();
     expect(screen.getByText('Portfolio Builder')).toBeInTheDocument();
     expect(screen.getByText('A project documentation workspace.')).toBeInTheDocument();
+  });
+
+  it('displays public profile information when there are no published projects', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        username: 'ada',
+        profile: {
+          userId: 'user-1',
+          name: 'Ada Lovelace',
+          bio: 'Builds rigorous developer tools.',
+          experienceYears: 7,
+          certifications: ['OutSystems Associate Reactive Developer'],
+          links: ['https://example.com/ada'],
+          visibility: 'public',
+        },
+        publishedProjects: [],
+      }),
+    } as Response);
+
+    render(<PublicDeveloperProfilePage />);
+
+    expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(screen.getByText('No published projects yet.')).toBeInTheDocument();
   });
 
   it('shows an unavailable message when the profile is private', async () => {

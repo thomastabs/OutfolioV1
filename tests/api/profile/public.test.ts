@@ -74,8 +74,28 @@ describe('GET /api/v1/profile/public/:username', () => {
         links: ['https://example.com/ada'],
         visibility: 'public',
       },
-      projects,
+      publishedProjects: projects,
     });
+  });
+
+  it('returns public profile data with an empty published project list', async () => {
+    const { res, handler } = setup({
+      prisma: {
+        user: {
+          findUnique: jest.fn().mockResolvedValue(user),
+        },
+        project: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      },
+    } as never);
+
+    await handler({ params: { username: 'ada' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      publishedProjects: [],
+    }));
   });
 
   it('requests only published projects for the public profile response', async () => {
@@ -87,11 +107,11 @@ describe('GET /api/v1/profile/public/:username', () => {
       where: { ownerId: user.id, visibility: 'PUBLISHED' },
     }));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      projects,
+      publishedProjects: projects,
     }));
   });
 
-  it('returns profile data for unlisted profiles by direct URL', async () => {
+  it('returns 403 for unlisted profiles', async () => {
     const { handler, res } = setup({
       prisma: {
         user: {
@@ -108,11 +128,11 @@ describe('GET /api/v1/profile/public/:username', () => {
 
     await handler({ params: { username: 'ada' } } as never, res as never);
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      profile: expect.objectContaining({ visibility: 'unlisted' }),
-      projects: [],
-    }));
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'profile_not_public',
+      message: 'Profile is not public.',
+    });
   });
 
   it('returns 403 for private profiles', async () => {
