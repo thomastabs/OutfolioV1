@@ -12,4 +12,23 @@ model User {
   username  String   @unique
   email     String   @unique
   createdAt DateTime @default(now())
+  profile   Profile?
+}
+
+/// Developer-facing profile data shown in the authenticated profile workspace.
+model Profile {
+  userId          String            @id
+  name            String            @default("")
+  bio             String            @default("")
+  experienceYears Int               @default(0)
+  certifications  String[]          @default([])
+  links           String[]          @default([])
+  visibility      ProfileVisibility @default(PRIVATE)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum ProfileVisibility {
+  PUBLIC   @map("public")
+  PRIVATE  @map("private")
+  UNLISTED @map("unlisted")
 }
