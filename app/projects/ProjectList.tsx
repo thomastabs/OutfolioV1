@@ -5,21 +5,33 @@ export type ProjectSummary = {
   title: string;
   slug: string;
   summary: string;
+  projectType?: string;
   role: string;
   status: string;
+  tags?: string[];
+  coverImageUrl?: string;
+  problem?: string;
+  features?: string;
+  technicalNotes?: string;
+  contribution?: string;
+  outcome?: string;
   visibility: string;
+  publishedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type ProjectListProps = {
   projects: ProjectSummary[];
   status: 'loading' | 'ready' | 'error';
+  onEditProject?(project: ProjectSummary): void;
 };
 
 function visibilityLabel(visibility: string) {
   return visibility.charAt(0).toUpperCase() + visibility.slice(1);
 }
 
-export function ProjectList({ projects, status }: ProjectListProps) {
+export function ProjectList({ projects, status, onEditProject }: ProjectListProps) {
   if (status === 'loading') {
     return <p>Loading projects...</p>;
   }
@@ -49,6 +61,11 @@ export function ProjectList({ projects, status }: ProjectListProps) {
                 <dd>{visibilityLabel(project.visibility)}</dd>
               </div>
             </dl>
+            {onEditProject ? (
+              <button type="button" onClick={() => onEditProject(project)}>
+                Edit {project.title}
+              </button>
+            ) : null}
           </li>
         ))}
       </ul>

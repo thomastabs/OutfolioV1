@@ -99,6 +99,69 @@ describe('ProjectsPage session guard', () => {
     expect(within(projectList).getByText('Draft')).toBeInTheDocument();
   });
 
+  it('refreshes the project list after a project edit is saved', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Original summary.',
+              role: 'Developer',
+              status: 'draft',
+              visibility: 'draft',
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'project-1',
+          title: 'Portfolio Builder',
+          slug: 'portfolio-builder',
+          summary: 'Updated summary.',
+          role: 'Developer',
+          status: 'draft',
+          visibility: 'draft',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Updated summary.',
+              role: 'Developer',
+              status: 'draft',
+              visibility: 'draft',
+            },
+          ],
+        }),
+      } as Response);
+
+    render(<ProjectsPage />);
+
+    await screen.findByText('Original summary.');
+    await user.click(screen.getByRole('button', { name: /edit portfolio builder/i }));
+    await user.clear(screen.getByLabelText(/^summary$/i));
+    await user.type(screen.getByLabelText(/^summary$/i), 'Updated summary.');
+    await user.click(screen.getByRole('button', { name: /save project/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1', expect.objectContaining({ method: 'PUT' })));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects'));
+    const projectList = await screen.findByRole('region', { name: /project list/i });
+    expect(within(projectList).getByText('Updated summary.')).toBeInTheDocument();
+  });
+
   it('redirects unauthenticated users to login without rendering the workspace', async () => {
     sessionState = { status: 'unauthenticated', data: null };
 
