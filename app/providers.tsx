@@ -33,7 +33,7 @@ function SessionPersistenceGuard({ children }: ProvidersProps) {
       return;
     }
 
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || !isProtectedPath) return;
 
     let isActive = true;
 

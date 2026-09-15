@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-export default function ProfilePage() {
+export default function ProjectsPage() {
   const router = useRouter();
   const { status } = useSession();
 
@@ -24,7 +24,7 @@ export default function ProfilePage() {
 
   return (
     <main>
-      <h1>Profile workspace</h1>
+      <h1>Project management workspace</h1>
     </main>
   );
 }

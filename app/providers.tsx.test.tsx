@@ -47,6 +47,24 @@ describe('Providers session persistence', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('keeps authenticated users on project pages when backend session is valid', async () => {
+    pathname = '/projects';
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ userId: 'user-1', username: 'ada', email: 'ada@example.com' }),
+    } as Response);
+
+    render(
+      <Providers>
+        <p>Project content</p>
+      </Providers>,
+    );
+
+    expect(screen.getByText('Project content')).toBeInTheDocument();
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/session'));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('redirects authenticated users to login when the backend session is expired', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,
@@ -62,12 +80,52 @@ describe('Providers session persistence', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
   });
 
+  it('redirects authenticated users away from login pages', async () => {
+    pathname = '/login';
+
+    render(
+      <Providers>
+        <p>Login page</p>
+      </Providers>,
+    );
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/profile'));
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('redirects authenticated users away from registration pages', async () => {
+    pathname = '/register';
+
+    render(
+      <Providers>
+        <p>Registration page</p>
+      </Providers>,
+    );
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/profile'));
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('redirects unauthenticated users away from protected pages', async () => {
     sessionState = { status: 'unauthenticated', data: null };
 
     render(
       <Providers>
         <p>Protected content</p>
+      </Providers>,
+    );
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('redirects unauthenticated users away from project pages', async () => {
+    sessionState = { status: 'unauthenticated', data: null };
+    pathname = '/projects';
+
+    render(
+      <Providers>
+        <p>Project content</p>
       </Providers>,
     );
 

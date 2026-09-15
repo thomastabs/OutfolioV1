@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import ProfilePage from './page';
+import ProjectsPage from './page';
 
 const replace = jest.fn();
 let sessionState: { status: 'loading' | 'authenticated' | 'unauthenticated'; data?: unknown } = {
@@ -15,7 +15,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace }),
 }));
 
-describe('ProfilePage session guard', () => {
+describe('ProjectsPage session guard', () => {
   beforeEach(() => {
     replace.mockClear();
     sessionState = {
@@ -24,28 +24,29 @@ describe('ProfilePage session guard', () => {
     };
   });
 
-  it('shows the profile workspace for authenticated users', () => {
-    render(<ProfilePage />);
+  it('shows the project management workspace for authenticated users', () => {
+    render(<ProjectsPage />);
 
-    expect(screen.getByText('Profile workspace')).toBeInTheDocument();
+    expect(screen.getByText('Project management workspace')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('redirects unauthenticated users to login', async () => {
+  it('redirects unauthenticated users to login without rendering the workspace', async () => {
     sessionState = { status: 'unauthenticated', data: null };
 
-    render(<ProfilePage />);
+    render(<ProjectsPage />);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
-    expect(screen.queryByText('Profile workspace')).not.toBeInTheDocument();
+    expect(screen.queryByText('Project management workspace')).not.toBeInTheDocument();
   });
 
   it('shows a loading state while the session is being determined', () => {
     sessionState = { status: 'loading', data: null };
 
-    render(<ProfilePage />);
+    render(<ProjectsPage />);
 
     expect(screen.getByText('Checking your session...')).toBeInTheDocument();
-    expect(screen.queryByText('Profile workspace')).not.toBeInTheDocument();
+    expect(screen.queryByText('Project management workspace')).not.toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
