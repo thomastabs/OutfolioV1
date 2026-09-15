@@ -22,4 +22,11 @@ describe('Project Prisma schema', () => {
     expect(schema).toMatch(/PUBLISHED\s+@map\("published"\)/);
     expect(schema).toMatch(/UNPUBLISHED\s+@map\("unpublished"\)/);
   });
+
+  it('supports draft project deletion constraints', () => {
+    expect(schema).toMatch(/id\s+String\s+@id\s+@default\(cuid\(\)\)/);
+    expect(schema).toMatch(/ownerId\s+String/);
+    expect(schema).toMatch(/visibility\s+ProjectVisibility\s+@default\(DRAFT\)/);
+    expect(schema).toMatch(/DRAFT\s+@map\("draft"\)/);
+  });
 });

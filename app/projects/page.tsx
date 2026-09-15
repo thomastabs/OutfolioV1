@@ -80,6 +80,12 @@ export default function ProjectsPage() {
         projects={projects}
         status={projectListStatus}
         onEditProject={(project) => setEditingProject(project)}
+        onProjectDeleted={(projectId) => {
+          setProjects((currentProjects) => currentProjects.filter((project) => project.id !== projectId));
+          if (editingProject?.id === projectId) {
+            setEditingProject(null);
+          }
+        }}
       />
     </main>
   );
