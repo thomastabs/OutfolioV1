@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ProjectsPage from './page';
 
 const replace = jest.fn();
@@ -18,17 +19,84 @@ jest.mock('next/navigation', () => ({
 describe('ProjectsPage session guard', () => {
   beforeEach(() => {
     replace.mockClear();
+    jest.restoreAllMocks();
+    global.fetch = jest.fn();
     sessionState = {
       status: 'authenticated',
       data: { user: { email: 'ada@example.com' } },
     };
   });
 
-  it('shows the project management workspace for authenticated users', () => {
+  it('shows the project management workspace for authenticated users', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ projects: [] }),
+    } as Response);
+
     render(<ProjectsPage />);
 
     expect(screen.getByText('Project management workspace')).toBeInTheDocument();
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects'));
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('fetches and displays existing draft projects', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        projects: [
+          {
+            id: 'project-1',
+            title: 'Portfolio Builder',
+            slug: 'portfolio-builder',
+            summary: 'A project documentation workspace.',
+            role: 'Developer',
+            status: 'draft',
+            visibility: 'draft',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<ProjectsPage />);
+
+    const projectList = await screen.findByRole('region', { name: /project list/i });
+    expect(within(projectList).getByText('Portfolio Builder')).toBeInTheDocument();
+    expect(within(projectList).getByText('Draft')).toBeInTheDocument();
+  });
+
+  it('adds a newly created draft project to the list', async () => {
+    const user = userEvent.setup();
+    const createdProject = {
+      id: 'project-2',
+      title: 'New Case Study',
+      slug: 'new-case-study',
+      summary: 'A new project draft.',
+      role: 'Developer',
+      status: 'draft',
+      visibility: 'draft',
+    };
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ projects: [] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => createdProject,
+      } as Response);
+
+    render(<ProjectsPage />);
+
+    await user.type(screen.getByLabelText(/^title$/i), 'New Case Study');
+    await user.type(screen.getByLabelText(/^summary$/i), 'A new project draft.');
+    await user.type(screen.getByLabelText(/^role$/i), 'Developer');
+    await user.click(screen.getByRole('button', { name: /create project/i }));
+
+    const projectList = await screen.findByRole('region', { name: /project list/i });
+    expect(within(projectList).getByText('New Case Study')).toBeInTheDocument();
+    expect(within(projectList).getByText('Draft')).toBeInTheDocument();
   });
 
   it('redirects unauthenticated users to login without rendering the workspace', async () => {
@@ -38,6 +106,7 @@ describe('ProjectsPage session guard', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
     expect(screen.queryByText('Project management workspace')).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('shows a loading state while the session is being determined', () => {

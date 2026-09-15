@@ -58,7 +58,7 @@ describe('GET /api/v1/profile/public/:username', () => {
       include: { profile: true },
     });
     expect(deps.prisma.project.findMany).toHaveBeenCalledWith({
-      where: { userId: user.id, visibility: 'published' },
+      where: { userId: user.id, visibility: 'PUBLISHED' },
       select: { id: true, title: true, slug: true, summary: true },
       orderBy: { title: 'asc' },
     });

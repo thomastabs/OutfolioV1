@@ -13,6 +13,7 @@ model User {
   email     String   @unique
   createdAt DateTime @default(now())
   profile   Profile?
+  projects  Project[]
 }
 
 /// Developer-facing profile data shown in the authenticated profile workspace.
@@ -31,4 +32,35 @@ enum ProfileVisibility {
   PUBLIC   @map("public")
   PRIVATE  @map("private")
   UNLISTED @map("unlisted")
+}
+
+model Project {
+  id             String            @id @default(cuid())
+  ownerId        String
+  title          String
+  slug           String
+  summary        String
+  projectType    String            @default("")
+  role           String
+  status         String            @default("draft")
+  tags           String[]          @default([])
+  coverImageUrl  String            @default("")
+  problem        String            @default("")
+  features       String            @default("")
+  technicalNotes String            @default("")
+  contribution   String            @default("")
+  outcome        String            @default("")
+  visibility     ProjectVisibility @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, slug])
+}
+
+enum ProjectVisibility {
+  DRAFT       @map("draft")
+  PUBLISHED   @map("published")
+  UNPUBLISHED @map("unpublished")
 }
