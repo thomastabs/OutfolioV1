@@ -146,7 +146,9 @@ export default function PublicDeveloperProfilePage() {
           <ul>
             {data.publishedProjects.map((project) => (
               <li key={project.id}>
-                <h3>{project.title}</h3>
+                <h3>
+                  <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
+                </h3>
                 <p>{project.summary || 'No summary added yet.'}</p>
               </li>
             ))}

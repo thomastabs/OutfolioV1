@@ -32,6 +32,21 @@ describe('GET /api/v1/profile/public/:username', () => {
     },
   ];
 
+  const publishedOnlyProjects = [
+    {
+      id: 'project-1',
+      title: 'Alpha Published',
+      slug: 'alpha-published',
+      summary: 'Visible to visitors.',
+    },
+    {
+      id: 'project-2',
+      title: 'Beta Published',
+      slug: 'beta-published',
+      summary: 'Also visible to visitors.',
+    },
+  ];
+
   function setup(overrides: Partial<Parameters<typeof createPublicProfileHandler>[0]> = {}) {
     const prisma = {
       user: {
@@ -108,6 +123,37 @@ describe('GET /api/v1/profile/public/:username', () => {
     }));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       publishedProjects: projects,
+    }));
+  });
+
+  it('excludes unpublished and private projects by querying only published visibility', async () => {
+    const { deps, handler, res } = setup({
+      prisma: {
+        user: {
+          findUnique: jest.fn().mockResolvedValue(user),
+        },
+        project: {
+          findMany: jest.fn().mockResolvedValue(publishedOnlyProjects),
+        },
+      },
+    } as never);
+
+    await handler({ params: { username: 'ada' } } as never, res as never);
+
+    expect(deps.prisma.project.findMany).toHaveBeenCalledWith({
+      where: { ownerId: user.id, visibility: 'PUBLISHED' },
+      select: { id: true, title: true, slug: true, summary: true },
+      orderBy: { title: 'asc' },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      publishedProjects: publishedOnlyProjects,
+    }));
+    expect(res.json).not.toHaveBeenCalledWith(expect.objectContaining({
+      publishedProjects: expect.arrayContaining([
+        expect.objectContaining({ slug: 'draft-project' }),
+        expect.objectContaining({ slug: 'private-project' }),
+      ]),
     }));
   });
 

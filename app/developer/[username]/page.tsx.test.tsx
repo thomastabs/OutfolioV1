@@ -52,6 +52,44 @@ describe('PublicDeveloperProfilePage', () => {
     expect(screen.getByRole('heading', { name: 'Published projects' })).toBeInTheDocument();
     expect(screen.getByText('Portfolio Builder')).toBeInTheDocument();
     expect(screen.getByText('A project documentation workspace.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Portfolio Builder' })).toHaveAttribute('href', '/project/portfolio-builder');
+  });
+
+  it('renders only projects returned by the public profile API', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        username: 'ada',
+        profile: {
+          userId: 'user-1',
+          name: 'Ada Lovelace',
+          bio: 'Builds rigorous developer tools.',
+          experienceYears: 7,
+          certifications: [],
+          links: [],
+          visibility: 'public',
+        },
+        publishedProjects: [
+          {
+            id: 'project-1',
+            title: 'Published Portfolio Builder',
+            slug: 'published-portfolio-builder',
+            summary: 'Visible public case study.',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<PublicDeveloperProfilePage />);
+
+    expect(await screen.findByRole('link', { name: 'Published Portfolio Builder' })).toHaveAttribute(
+      'href',
+      '/project/published-portfolio-builder',
+    );
+    expect(screen.getByText('Visible public case study.')).toBeInTheDocument();
+    expect(screen.queryByText('Unpublished Portfolio Builder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Private Portfolio Builder')).not.toBeInTheDocument();
   });
 
   it('displays public profile information when there are no published projects', async () => {
