@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import type { ProjectSummary } from '@/src/api/v1/discover/projects';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -22,12 +23,28 @@ function buildDiscoveryUrl(projectType: string, keyword: string) {
   return query ? `/api/v1/discover/projects?${query}` : '/api/v1/discover/projects';
 }
 
-export default function DiscoveryPage() {
+function DiscoveryContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [state, setState] = useState<LoadState>('loading');
-  const [projectType, setProjectType] = useState('');
+  const [projectType, setProjectType] = useState(() => searchParams.get('projectType') ?? '');
   const [keyword, setKeyword] = useState('');
   const requestUrl = useMemo(() => buildDiscoveryUrl(projectType, keyword), [projectType, keyword]);
+
+  function updateProjectType(nextProjectType: string) {
+    setProjectType(nextProjectType);
+
+    const params = new URLSearchParams();
+    const trimmedProjectType = nextProjectType.trim();
+
+    if (trimmedProjectType) {
+      params.set('projectType', trimmedProjectType);
+    }
+
+    const query = params.toString();
+    router.replace(query ? `/discover?${query}` : '/discover', { scroll: false });
+  }
 
   useEffect(() => {
     let isActive = true;
@@ -71,7 +88,7 @@ export default function DiscoveryPage() {
         <select
           id="project-type"
           value={projectType}
-          onChange={(event) => setProjectType(event.target.value)}
+          onChange={(event) => updateProjectType(event.target.value)}
         >
           <option value="">All project types</option>
           <option value="OutSystems">OutSystems</option>
@@ -94,7 +111,11 @@ export default function DiscoveryPage() {
       {state === 'error' ? <p>Published projects could not be loaded.</p> : null}
 
       {state === 'ready' && projects.length === 0 ? (
-        <p>No published projects are currently available for browsing.</p>
+        <p>
+          {projectType
+            ? 'No published projects found for this filter.'
+            : 'No published projects are currently available for browsing.'}
+        </p>
       ) : null}
 
       {state === 'ready' && projects.length > 0 ? (
@@ -111,5 +132,13 @@ export default function DiscoveryPage() {
         </ul>
       ) : null}
     </main>
+  );
+}
+
+export default function DiscoveryPage() {
+  return (
+    <Suspense fallback={<p>Loading projects...</p>}>
+      <DiscoveryContent />
+    </Suspense>
   );
 }

@@ -127,6 +127,21 @@ describe('GET /api/v1/discover/projects', () => {
     });
   });
 
+  it('returns an empty list when the project type filter has no matches', async () => {
+    const { prisma, handler, res } = setup([]);
+
+    await handler({ query: { projectType: 'Mobile' } } as never, res as never);
+
+    expect(prisma.project.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        visibility: 'PUBLISHED',
+        projectType: 'Mobile',
+      },
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ projects: [] });
+  });
+
   it('searches by keyword in title or summary case-insensitively', async () => {
     const { prisma, handler } = setup([publishedProjects[1]]);
 
