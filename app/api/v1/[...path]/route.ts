@@ -1,22 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { loginHandler } from '@/src/api/v1/auth/login';
-import { logoutHandler } from '@/src/api/v1/auth/logout';
-import { registerHandler } from '@/src/api/v1/auth/register';
-import { sessionHandler } from '@/src/api/v1/auth/session';
-import { discoverProjectsHandler } from '@/src/api/v1/discover/projects';
-import { missingDeploymentEnv } from '@/src/api/v1';
-import { profileMeHandler, updateProfileMeHandler } from '@/src/api/v1/profile/me';
-import { publicProfileHandler } from '@/src/api/v1/profile/public';
-import { projectCreateHandler, projectListHandler } from '@/src/api/v1/projects/create';
-import { projectDeleteHandler } from '@/src/api/v1/projects/delete';
-import { projectGetHandler } from '@/src/api/v1/projects/get';
-import { projectPublishHandler } from '@/src/api/v1/projects/publish';
-import { projectUnpublishHandler } from '@/src/api/v1/projects/unpublish';
-import { projectUpdateHandler } from '@/src/api/v1/projects/update';
-import { publicProjectHandler } from '@/src/api/v1/public/project';
-
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type RouteContext = {
   params: {
@@ -26,8 +11,10 @@ type RouteContext = {
 
 type ApiHandler = (req: never, res: never) => Promise<unknown> | unknown;
 
+type HandlerLoader = () => Promise<ApiHandler>;
+
 type RouteMatch = {
-  handler: ApiHandler;
+  loadHandler: HandlerLoader;
   params?: Record<string, string>;
 };
 
@@ -38,6 +25,26 @@ type CookieOptions = {
   path?: string;
   expires?: Date;
 };
+
+const requiredDeploymentEnv = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'DATABASE_URL',
+  'NEXTAUTH_URL',
+  'NEXTAUTH_SECRET',
+] as const;
+
+function missingDeploymentEnv(env: NodeJS.ProcessEnv = process.env) {
+  return requiredDeploymentEnv.filter((name) => !env[name]);
+}
+
+function loadHandler<TModule extends Record<string, ApiHandler>>(loader: () => Promise<TModule>, name: keyof TModule) {
+  return async () => {
+    const module = await loader();
+    return module[name];
+  };
+}
 
 function queryObject(url: URL) {
   const query: Record<string, string | string[]> = {};
@@ -88,45 +95,90 @@ function serializeCookie(name: string, value: string, options: CookieOptions) {
 function findRoute(method: string, segments: string[]): RouteMatch | null {
   const [first, second, third, fourth] = segments;
 
-  if (method === 'POST' && first === 'auth' && second === 'login') return { handler: loginHandler };
-  if (method === 'POST' && first === 'auth' && second === 'logout') return { handler: logoutHandler };
-  if (method === 'POST' && first === 'auth' && second === 'register') return { handler: registerHandler };
-  if (method === 'GET' && first === 'auth' && second === 'session') return { handler: sessionHandler };
+  if (method === 'POST' && first === 'auth' && second === 'login') {
+    return { loadHandler: loadHandler(() => import('@/src/api/v1/auth/login'), 'loginHandler') };
+  }
+  if (method === 'POST' && first === 'auth' && second === 'logout') {
+    return { loadHandler: loadHandler(() => import('@/src/api/v1/auth/logout'), 'logoutHandler') };
+  }
+  if (method === 'POST' && first === 'auth' && second === 'register') {
+    return { loadHandler: loadHandler(() => import('@/src/api/v1/auth/register'), 'registerHandler') };
+  }
+  if (method === 'GET' && first === 'auth' && second === 'session') {
+    return { loadHandler: loadHandler(() => import('@/src/api/v1/auth/session'), 'sessionHandler') };
+  }
 
   if (method === 'GET' && first === 'discover' && second === 'projects') {
-    return { handler: discoverProjectsHandler };
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/discover/projects'), 'discoverProjectsHandler'),
+    };
   }
 
   if (first === 'profile' && second === 'me') {
-    if (method === 'GET') return { handler: profileMeHandler };
-    if (method === 'PUT') return { handler: updateProfileMeHandler };
+    if (method === 'GET') {
+      return { loadHandler: loadHandler(() => import('@/src/api/v1/profile/me'), 'profileMeHandler') };
+    }
+    if (method === 'PUT') {
+      return { loadHandler: loadHandler(() => import('@/src/api/v1/profile/me'), 'updateProfileMeHandler') };
+    }
   }
 
   if (method === 'GET' && first === 'profile' && second === 'public' && third) {
-    return { handler: publicProfileHandler, params: { username: third } };
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/profile/public'), 'publicProfileHandler'),
+      params: { username: third },
+    };
   }
 
   if (first === 'projects' && !second) {
-    if (method === 'GET') return { handler: projectListHandler };
-    if (method === 'POST') return { handler: projectCreateHandler };
+    if (method === 'GET') {
+      return { loadHandler: loadHandler(() => import('@/src/api/v1/projects/create'), 'projectListHandler') };
+    }
+    if (method === 'POST') {
+      return { loadHandler: loadHandler(() => import('@/src/api/v1/projects/create'), 'projectCreateHandler') };
+    }
   }
 
   if (first === 'projects' && second && !third) {
-    if (method === 'GET') return { handler: projectGetHandler, params: { id: second } };
-    if (method === 'PUT') return { handler: projectUpdateHandler, params: { id: second } };
-    if (method === 'DELETE') return { handler: projectDeleteHandler, params: { id: second } };
+    if (method === 'GET') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/get'), 'projectGetHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'PUT') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/update'), 'projectUpdateHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'DELETE') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/delete'), 'projectDeleteHandler'),
+        params: { id: second },
+      };
+    }
   }
 
   if (method === 'POST' && first === 'projects' && second && third === 'publish' && !fourth) {
-    return { handler: projectPublishHandler, params: { id: second } };
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/projects/publish'), 'projectPublishHandler'),
+      params: { id: second },
+    };
   }
 
   if (method === 'POST' && first === 'projects' && second && third === 'unpublish' && !fourth) {
-    return { handler: projectUnpublishHandler, params: { id: second } };
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/projects/unpublish'), 'projectUnpublishHandler'),
+      params: { id: second },
+    };
   }
 
   if (method === 'GET' && first === 'public' && second === 'project' && third) {
-    return { handler: publicProjectHandler, params: { slug: third } };
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/public/project'), 'publicProjectHandler'),
+      params: { slug: third },
+    };
   }
 
   return null;
@@ -180,7 +232,8 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
     },
   };
 
-  await match.handler(req as never, res as never);
+  const handler = await match.loadHandler();
+  await handler(req as never, res as never);
 
   return new Response(JSON.stringify(responseBody), {
     status: statusCode,

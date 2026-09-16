@@ -16,4 +16,11 @@ describe('App Router API deployment bridge', () => {
     expect(source).toContain('export async function PUT');
     expect(source).toContain('export async function DELETE');
   });
+
+  it('uses the Node.js runtime and lazy-loads API handlers for Vercel functions', () => {
+    const source = fs.readFileSync(routePath, 'utf8');
+
+    expect(source).toContain("export const runtime = 'nodejs'");
+    expect(source).toContain('import(');
+  });
 });
