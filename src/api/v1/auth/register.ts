@@ -34,6 +34,8 @@ type RegisterDependencies = {
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const usernamePattern = /^[A-Za-z0-9_-]+$/;
+const minimumPasswordLength = 12;
 
 function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -49,9 +51,17 @@ function validateRegisterBody(body: RegisterBody) {
   const fields: Partial<Record<keyof typeof values, string>> = {};
 
   if (!values.name) fields.name = 'Name is required.';
-  if (!values.username) fields.username = 'Username is required.';
+  if (!values.username) {
+    fields.username = 'Username is required.';
+  } else if (!usernamePattern.test(values.username)) {
+    fields.username = 'Username may contain only letters, numbers, underscores, and hyphens.';
+  }
   if (!values.email || !emailPattern.test(values.email)) fields.email = 'Enter a valid email address.';
-  if (!values.password) fields.password = 'Password is required.';
+  if (!values.password) {
+    fields.password = 'Password is required.';
+  } else if (values.password.length < minimumPasswordLength) {
+    fields.password = 'Password must be at least 12 characters.';
+  }
 
   return { values, fields };
 }

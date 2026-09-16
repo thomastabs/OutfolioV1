@@ -31,6 +31,22 @@ describe('RegistrationForm', () => {
     expect(screen.getByText('Password is required.')).toBeInTheDocument();
   });
 
+  it('prevents submission when username format or password strength is invalid', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    const user = userEvent.setup();
+
+    render(<RegistrationForm />);
+    await user.type(screen.getByLabelText(/^name$/i), 'Ada Lovelace');
+    await user.type(screen.getByLabelText(/^username$/i), 'ada lovelace');
+    await user.type(screen.getByLabelText(/^email$/i), 'ada@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'short');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText('Username may contain only letters, numbers, underscores, and hyphens.')).toBeInTheDocument();
+    expect(screen.getByText('Password must be at least 12 characters.')).toBeInTheDocument();
+  });
+
   it('posts valid form data and notifies success', async () => {
     const onRegistered = jest.fn();
     const user = userEvent.setup();

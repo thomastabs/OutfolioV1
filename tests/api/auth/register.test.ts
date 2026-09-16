@@ -142,4 +142,31 @@ describe('POST /api/v1/auth/register', () => {
       },
     });
   });
+
+  it('rejects malformed username format and weak passwords', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler(
+      {
+        body: {
+          ...validBody,
+          username: 'ada lovelace',
+          password: 'short',
+        },
+      } as never,
+      res as never,
+    );
+
+    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.prisma.user.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'malformed_input',
+      message: 'Registration input is invalid.',
+      fields: {
+        username: 'Username may contain only letters, numbers, underscores, and hyphens.',
+        password: 'Password must be at least 12 characters.',
+      },
+    });
+  });
 });

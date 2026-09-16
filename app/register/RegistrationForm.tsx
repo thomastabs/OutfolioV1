@@ -28,16 +28,29 @@ const initialValues: FormValues = {
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const usernamePattern = /^[A-Za-z0-9_-]+$/;
+const minimumPasswordLength = 12;
 
 function validate(values: FormValues) {
   const errors: FieldErrors = {};
 
   if (!values.name.trim()) errors.name = 'Name is required.';
-  if (!values.username.trim()) errors.username = 'Username is required.';
+  const username = values.username.trim();
+  const password = values.password;
+
+  if (!username) {
+    errors.username = 'Username is required.';
+  } else if (!usernamePattern.test(username)) {
+    errors.username = 'Username may contain only letters, numbers, underscores, and hyphens.';
+  }
   if (!values.email.trim() || !emailPattern.test(values.email.trim())) {
     errors.email = 'Enter a valid email address.';
   }
-  if (!values.password.trim()) errors.password = 'Password is required.';
+  if (!password.trim()) {
+    errors.password = 'Password is required.';
+  } else if (password.length < minimumPasswordLength) {
+    errors.password = 'Password must be at least 12 characters.';
+  }
 
   return errors;
 }
