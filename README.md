@@ -65,6 +65,8 @@ The next epic is Quality, Deployment and Demo Readiness.
 - `src/api/v1/index.ts` - mounted API v1 Express router and deployment env
   guard
 - `api/v1/[...path].ts` - Vercel catch-all serverless function for `/api/v1`
+- `app/api/v1/[...path]/route.ts` - Next.js App Router API bridge for
+  deployed `/api/v1` routes
 - `prisma/schema.prisma` - User, Profile, and Project data model
 - `demonstration-log.local.md` - local, gitignored thesis demonstration log
 
@@ -254,6 +256,8 @@ is configured with the required secrets and the deployed `NEXTAUTH_URL`.
 - `POST /api/v1/auth/login` validates username/password and establishes a
   session.
 - `GET /api/v1/auth/session` returns authenticated session identity.
+- `GET /api/v1/health` returns a database-free API health response for
+  deployment diagnostics.
 - `POST /api/v1/auth/logout` clears the active session.
 - Login, registration, profile, and project pages redirect based on session
   state.
@@ -307,7 +311,7 @@ At the latest Story `9543690` local verification point:
 
 - `pnpm test -- tests/api/v1/deployment-router.test.ts` passed: 1 suite,
   5 tests.
-- `pnpm test` passed: 35 suites, 206 tests.
+- `pnpm test` passed: 35 suites, 207 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.

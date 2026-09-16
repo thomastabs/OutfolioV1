@@ -23,4 +23,11 @@ describe('App Router API deployment bridge', () => {
     expect(source).toContain("export const runtime = 'nodejs'");
     expect(source).toContain('import(');
   });
+
+  it('includes a database-free health route for deployed API diagnostics', () => {
+    const source = fs.readFileSync(routePath, 'utf8');
+
+    expect(source).toContain("first === 'health'");
+    expect(source).toContain("status: 'ok'");
+  });
 });

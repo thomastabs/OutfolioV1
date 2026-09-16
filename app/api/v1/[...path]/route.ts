@@ -14,7 +14,8 @@ type ApiHandler = (req: never, res: never) => Promise<unknown> | unknown;
 type HandlerLoader = () => Promise<ApiHandler>;
 
 type RouteMatch = {
-  loadHandler: HandlerLoader;
+  loadHandler?: HandlerLoader;
+  response?: { status: number; body: unknown };
   params?: Record<string, string>;
 };
 
@@ -94,6 +95,18 @@ function serializeCookie(name: string, value: string, options: CookieOptions) {
 
 function findRoute(method: string, segments: string[]): RouteMatch | null {
   const [first, second, third, fourth] = segments;
+
+  if (method === 'GET' && first === 'health' && !second) {
+    return {
+      response: {
+        status: 200,
+        body: {
+          status: 'ok',
+          service: 'api-v1',
+        },
+      },
+    };
+  }
 
   if (method === 'POST' && first === 'auth' && second === 'login') {
     return { loadHandler: loadHandler(() => import('@/src/api/v1/auth/login'), 'loginHandler') };
@@ -203,6 +216,10 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'not_found', message: 'API route not found.' }, { status: 404 });
   }
 
+  if (match.response) {
+    return NextResponse.json(match.response.body, { status: match.response.status });
+  }
+
   const url = new URL(request.url);
   const responseHeaders = new Headers({ 'content-type': 'application/json' });
   let statusCode = 200;
@@ -232,7 +249,11 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
     },
   };
 
-  const handler = await match.loadHandler();
+  const handler = await match.loadHandler?.();
+  if (!handler) {
+    return NextResponse.json({ error: 'not_found', message: 'API route not found.' }, { status: 404 });
+  }
+
   await handler(req as never, res as never);
 
   return new Response(JSON.stringify(responseBody), {
