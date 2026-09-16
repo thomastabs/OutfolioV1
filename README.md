@@ -307,7 +307,7 @@ At the latest Story `9543690` local verification point:
 
 - `pnpm test -- tests/api/v1/deployment-router.test.ts` passed: 1 suite,
   5 tests.
-- `pnpm test` passed: 34 suites, 203 tests.
+- `pnpm test` passed: 35 suites, 205 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.
