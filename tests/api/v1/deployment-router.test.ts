@@ -70,7 +70,7 @@ describe('API v1 deployment router', () => {
     ).toBe(true);
   });
 
-  it('exposes a Vercel catch-all serverless function for /api/v1 routes', () => {
-    expect(fs.existsSync(path.join(process.cwd(), 'api/v1/[...path].ts'))).toBe(true);
+  it('does not expose the legacy root serverless function that shadows App Router API routes', () => {
+    expect(fs.existsSync(path.join(process.cwd(), 'api/v1/[...path].ts'))).toBe(false);
   });
 });

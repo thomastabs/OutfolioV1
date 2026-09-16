@@ -41,8 +41,8 @@ The next epic is Quality, Deployment and Demo Readiness.
 - Runtime: Node.js `20.x`
 - Package manager: `pnpm`
 - Frontend: Next.js 14 app directory with React and TypeScript
-- API layer: Express-style route handlers under `src/api/v1`, mounted for
-  Vercel through `api/v1/[...path].ts`
+- API layer: Express-style route handlers under `src/api/v1`, bridged for
+  Vercel through `app/api/v1/[...path]/route.ts`
 - ORM: Prisma
 - Database/auth provider: Supabase Postgres/Auth
 - Browser sessions: NextAuth-compatible session cookie handling
@@ -64,7 +64,6 @@ The next epic is Quality, Deployment and Demo Readiness.
 - `src/api/v1/discover` - discovery handlers
 - `src/api/v1/index.ts` - mounted API v1 Express router and deployment env
   guard
-- `api/v1/[...path].ts` - Vercel catch-all serverless function for `/api/v1`
 - `app/api/v1/[...path]/route.ts` - Next.js App Router API bridge for
   deployed `/api/v1` routes
 - `prisma/schema.prisma` - User, Profile, and Project data model
@@ -195,11 +194,11 @@ pnpm build
 Traceability: this section covers Story `9543690`, deployment technical
 requirements DT-1 and DT-3, and runtime requirements RT-1, RT-2, and RT-3.
 
-The real infrastructure delta for Story `9543690` is the API v1 serverless
-mount plus production environment and database migration verification. The
-application code now exposes the Express API router through
-`api/v1/[...path].ts`, so Vercel can route `/api/v1/*` requests to the backend
-handlers.
+The real infrastructure delta for Story `9543690` is the API v1 App Router
+bridge plus production environment and database migration verification. The
+application code now exposes the backend handlers through
+`app/api/v1/[...path]/route.ts`, so Vercel can route `/api/v1/*` requests to
+the backend handlers.
 
 Required production environment variables:
 
