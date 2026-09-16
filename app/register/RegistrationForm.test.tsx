@@ -79,6 +79,31 @@ describe('RegistrationForm', () => {
     expect(await screen.findByText('Username or email is already in use.')).toBeInTheDocument();
   });
 
+  it('displays server-side validation field errors', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: 'validation_error',
+        message: 'Registration input is invalid.',
+        fields: {
+          email: 'Email is already reserved for review.',
+        },
+      }),
+    } as Response);
+
+    render(<RegistrationForm />);
+    await user.type(screen.getByLabelText(/^name$/i), 'Ada Lovelace');
+    await user.type(screen.getByLabelText(/^username$/i), 'ada');
+    await user.type(screen.getByLabelText(/^email$/i), 'ada@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'correct-horse-battery-staple');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText('Registration input is invalid.')).toBeInTheDocument();
+    expect(screen.getByText('Email is already reserved for review.')).toBeInTheDocument();
+  });
+
   it('shows loading state and prevents duplicate submits', async () => {
     const user = userEvent.setup();
     let resolveFetch: (value: Response) => void = () => undefined;

@@ -93,6 +93,9 @@ export default function PublicDeveloperProfilePage() {
     data.profile.experienceYears > 0
       ? `${data.profile.experienceYears} ${data.profile.experienceYears === 1 ? 'year' : 'years'}`
       : 'No experience added yet';
+  const visibilityText = data.profile.visibility
+    ? data.profile.visibility.charAt(0).toUpperCase() + data.profile.visibility.slice(1)
+    : 'Private';
 
   return (
     <main>
@@ -106,6 +109,10 @@ export default function PublicDeveloperProfilePage() {
           <div>
             <dt>Experience</dt>
             <dd>{experienceText}</dd>
+          </div>
+          <div>
+            <dt>Visibility</dt>
+            <dd>{visibilityText}</dd>
           </div>
           <div>
             <dt>Certifications</dt>

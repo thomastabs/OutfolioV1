@@ -99,6 +99,17 @@ describe('ProfileEditor', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it('prevents submission when required profile fields are missing', async () => {
+    const user = userEvent.setup();
+    render(<ProfileEditor profile={profile} onProfileSaved={jest.fn()} />);
+
+    await user.clear(screen.getByLabelText(/^name$/i));
+    await user.click(screen.getByRole('button', { name: /save profile/i }));
+
+    expect(await screen.findByText('Name is required.')).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('displays API validation errors without reporting a saved profile', async () => {
     const user = userEvent.setup();
     const onProfileSaved = jest.fn();
@@ -165,6 +176,21 @@ describe('ProfileEditor', () => {
 
     expect(await screen.findByText('Visibility must be public, private, or unlisted.')).toBeInTheDocument();
     expect(onProfileSaved).not.toHaveBeenCalled();
+  });
+
+  it('shows a general error message for unexpected save failures', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'unexpected_failure' }),
+    } as Response);
+
+    render(<ProfileEditor profile={profile} onProfileSaved={jest.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /save profile/i }));
+
+    expect(await screen.findByText('Could not save profile changes.')).toBeInTheDocument();
   });
 
   it('disables the submit button while the update request is in progress', async () => {

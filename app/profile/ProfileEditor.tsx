@@ -64,6 +64,10 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
     const years = Number(experienceYears);
     const parsedLinks = textToList(links);
 
+    if (!name.trim()) {
+      errors.name = 'Name is required.';
+    }
+
     if (!Number.isInteger(years) || years < 0) {
       errors.experienceYears = 'Years of experience must be a non-negative integer.';
     }
@@ -90,7 +94,7 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
+          name: name.trim(),
           bio,
           experienceYears: Number(experienceYears),
           certifications: textToList(certifications),
@@ -127,7 +131,15 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
     <form aria-label="Profile editor" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="profile-name">Name</label>
-        <input id="profile-name" name="name" value={name} onChange={(event) => setName(event.target.value)} />
+        <input
+          id="profile-name"
+          name="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          aria-invalid={fieldErrors.name ? 'true' : undefined}
+          aria-describedby={fieldErrors.name ? 'profile-name-error' : undefined}
+        />
+        {fieldErrors.name ? <p id="profile-name-error">{fieldErrors.name}</p> : null}
       </div>
 
       <div>

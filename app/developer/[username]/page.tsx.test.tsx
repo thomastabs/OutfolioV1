@@ -47,6 +47,7 @@ describe('PublicDeveloperProfilePage', () => {
     expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
     expect(screen.getByText('Builds rigorous developer tools.')).toBeInTheDocument();
     expect(screen.getByText('7 years')).toBeInTheDocument();
+    expect(screen.getByText('Public')).toBeInTheDocument();
     expect(screen.getByText('OutSystems Associate Reactive Developer')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'https://example.com/ada' })).toHaveAttribute('href', 'https://example.com/ada');
     expect(screen.getByRole('heading', { name: 'Published projects' })).toBeInTheDocument();
