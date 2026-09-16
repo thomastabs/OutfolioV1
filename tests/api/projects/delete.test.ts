@@ -67,8 +67,8 @@ describe('DELETE /api/v1/projects/:id', () => {
     expect(deps.prisma.project.delete).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'project_not_draft',
-      message: 'Only draft projects can be deleted. Unpublish the project first.',
+      error: 'not_owner_or_not_draft',
+      message: 'Only draft projects owned by the authenticated user can be deleted.',
     });
   });
 
@@ -87,8 +87,8 @@ describe('DELETE /api/v1/projects/:id', () => {
     expect(deps.prisma.project.delete).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'forbidden',
-      message: 'You do not have access to this project.',
+      error: 'not_owner_or_not_draft',
+      message: 'Only draft projects owned by the authenticated user can be deleted.',
     });
   });
 

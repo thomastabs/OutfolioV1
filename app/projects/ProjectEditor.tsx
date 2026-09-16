@@ -297,6 +297,12 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         </select>
         {fieldErrors.visibility ? <p>{fieldErrors.visibility}</p> : null}
       </div>
+      {project?.publishedAt ? (
+        <div>
+          <span>Published at</span>
+          <p>{project.publishedAt}</p>
+        </div>
+      ) : null}
       {message ? <p>{message}</p> : null}
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save project' : 'Create project')}

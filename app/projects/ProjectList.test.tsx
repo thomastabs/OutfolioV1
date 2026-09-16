@@ -56,6 +56,34 @@ describe('ProjectList', () => {
     expect(screen.queryByRole('button', { name: /delete published portfolio/i })).not.toBeInTheDocument();
   });
 
+  it('shows publish and unpublish controls based on visibility', () => {
+    render(<ProjectList projects={projects} status="ready" onPublishProject={jest.fn()} onUnpublishProject={jest.fn()} />);
+
+    expect(screen.getByRole('button', { name: /publish portfolio builder/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /unpublish published portfolio/i })).toBeInTheDocument();
+  });
+
+  it('calls publish and unpublish callbacks from project controls', async () => {
+    const user = userEvent.setup();
+    const onPublishProject = jest.fn();
+    const onUnpublishProject = jest.fn();
+
+    render(
+      <ProjectList
+        projects={projects}
+        status="ready"
+        onPublishProject={onPublishProject}
+        onUnpublishProject={onUnpublishProject}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /publish portfolio builder/i }));
+    await user.click(screen.getByRole('button', { name: /unpublish published portfolio/i }));
+
+    expect(onPublishProject).toHaveBeenCalledWith('project-1');
+    expect(onUnpublishProject).toHaveBeenCalledWith('project-2');
+  });
+
   it('opens a confirmation dialog before deleting a draft project', async () => {
     const user = userEvent.setup();
 

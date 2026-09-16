@@ -31,6 +31,13 @@ function isDraftProject(project: ProjectRecord) {
   return project.visibility.toUpperCase() === 'DRAFT';
 }
 
+function notOwnerOrNotDraft(res: Response) {
+  return res.status(403).json({
+    error: 'not_owner_or_not_draft',
+    message: 'Only draft projects owned by the authenticated user can be deleted.',
+  });
+}
+
 export function createProjectDeleteHandler(deps: ProjectDeleteDependencies) {
   return async function projectDeleteHandler(req: Request, res: Response) {
     try {
@@ -59,17 +66,11 @@ export function createProjectDeleteHandler(deps: ProjectDeleteDependencies) {
       }
 
       if (project.ownerId !== session.userId) {
-        return res.status(403).json({
-          error: 'forbidden',
-          message: 'You do not have access to this project.',
-        });
+        return notOwnerOrNotDraft(res);
       }
 
       if (!isDraftProject(project)) {
-        return res.status(403).json({
-          error: 'project_not_draft',
-          message: 'Only draft projects can be deleted. Unpublish the project first.',
-        });
+        return notOwnerOrNotDraft(res);
       }
 
       await deps.prisma.project.delete({

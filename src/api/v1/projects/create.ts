@@ -182,7 +182,8 @@ export function createProjectHandler(deps: ProjectDependencies) {
           ownerId: session.userId,
           ...parsed.data,
           slug,
-          publishedAt: parsed.data.visibility === 'PUBLISHED' ? new Date() : null,
+          visibility: 'DRAFT',
+          publishedAt: null,
         },
       });
 

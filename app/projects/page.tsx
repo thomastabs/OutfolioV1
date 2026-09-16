@@ -13,6 +13,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [projectListStatus, setProjectListStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
+  const [workspaceError, setWorkspaceError] = useState('');
 
   const loadProjects = useCallback(async (isActive = true) => {
     setProjectListStatus('loading');
@@ -54,6 +55,32 @@ export default function ProjectsPage() {
     };
   }, [loadProjects, status]);
 
+  async function changeProjectVisibility(projectId: string, action: 'publish' | 'unpublish') {
+    setWorkspaceError('');
+
+    try {
+      const response = await fetch(`/api/v1/projects/${projectId}/${action}`, {
+        method: 'POST',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setWorkspaceError(
+          typeof data.message === 'string'
+            ? data.message
+            : action === 'publish'
+              ? 'Project could not be published.'
+              : 'Project could not be unpublished.',
+        );
+        return;
+      }
+
+      await loadProjects();
+    } catch {
+      setWorkspaceError(action === 'publish' ? 'Project could not be published.' : 'Project could not be unpublished.');
+    }
+  }
+
   if (status === 'loading') {
     return <p>Checking your session...</p>;
   }
@@ -65,6 +92,7 @@ export default function ProjectsPage() {
   return (
     <main>
       <h1>Project management workspace</h1>
+      {workspaceError ? <p role="alert">{workspaceError}</p> : null}
       {editingProject ? (
         <ProjectEditor
           project={editingProject}
@@ -86,6 +114,8 @@ export default function ProjectsPage() {
             setEditingProject(null);
           }
         }}
+        onPublishProject={(projectId) => changeProjectVisibility(projectId, 'publish')}
+        onUnpublishProject={(projectId) => changeProjectVisibility(projectId, 'unpublish')}
       />
     </main>
   );

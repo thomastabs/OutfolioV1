@@ -162,6 +162,124 @@ describe('ProjectsPage session guard', () => {
     expect(within(projectList).getByText('Updated summary.')).toBeInTheDocument();
   });
 
+  it('publishes a project from the workspace list and refreshes the list', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Draft summary.',
+              role: 'Developer',
+              status: 'draft',
+              visibility: 'draft',
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'project-1',
+          title: 'Portfolio Builder',
+          slug: 'portfolio-builder',
+          status: 'draft',
+          visibility: 'published',
+          publishedAt: '2026-09-15T21:00:00.000Z',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Draft summary.',
+              role: 'Developer',
+              status: 'draft',
+              visibility: 'published',
+            },
+          ],
+        }),
+      } as Response);
+
+    render(<ProjectsPage />);
+
+    await screen.findByText('Portfolio Builder');
+    await user.click(screen.getByRole('button', { name: /publish portfolio builder/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/publish', { method: 'POST' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects'));
+    const projectList = await screen.findByRole('region', { name: /project list/i });
+    expect(within(projectList).getByText('Published')).toBeInTheDocument();
+  });
+
+  it('unpublishes a project from the workspace list and refreshes the list', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Published summary.',
+              role: 'Developer',
+              status: 'published',
+              visibility: 'published',
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'project-1',
+          title: 'Portfolio Builder',
+          slug: 'portfolio-builder',
+          status: 'published',
+          visibility: 'unpublished',
+          publishedAt: null,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projects: [
+            {
+              id: 'project-1',
+              title: 'Portfolio Builder',
+              slug: 'portfolio-builder',
+              summary: 'Published summary.',
+              role: 'Developer',
+              status: 'published',
+              visibility: 'unpublished',
+            },
+          ],
+        }),
+      } as Response);
+
+    render(<ProjectsPage />);
+
+    await screen.findByText('Portfolio Builder');
+    await user.click(screen.getByRole('button', { name: /unpublish portfolio builder/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/unpublish', { method: 'POST' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects'));
+    const projectList = await screen.findByRole('region', { name: /project list/i });
+    expect(within(projectList).getByText('Unpublished')).toBeInTheDocument();
+  });
+
   it('redirects unauthenticated users to login without rendering the workspace', async () => {
     sessionState = { status: 'unauthenticated', data: null };
 

@@ -28,6 +28,8 @@ type ProjectListProps = {
   status: 'loading' | 'ready' | 'error';
   onEditProject?(project: ProjectSummary): void;
   onProjectDeleted?(projectId: string): void;
+  onPublishProject?(projectId: string): void;
+  onUnpublishProject?(projectId: string): void;
 };
 
 function visibilityLabel(visibility: string) {
@@ -38,7 +40,22 @@ function isDraftProject(project: ProjectSummary) {
   return project.visibility.toLowerCase() === 'draft';
 }
 
-export function ProjectList({ projects, status, onEditProject, onProjectDeleted }: ProjectListProps) {
+function isPublishedProject(project: ProjectSummary) {
+  return project.visibility.toLowerCase() === 'published';
+}
+
+function canPublishProject(project: ProjectSummary) {
+  return ['draft', 'unpublished'].includes(project.visibility.toLowerCase());
+}
+
+export function ProjectList({
+  projects,
+  status,
+  onEditProject,
+  onProjectDeleted,
+  onPublishProject,
+  onUnpublishProject,
+}: ProjectListProps) {
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
   const [deletedProjectIds, setDeletedProjectIds] = useState<string[]>([]);
   const [deleteError, setDeleteError] = useState('');
@@ -120,6 +137,16 @@ export function ProjectList({ projects, status, onEditProject, onProjectDeleted 
                 }}
               >
                 Delete {project.title}
+              </button>
+            ) : null}
+            {onPublishProject && canPublishProject(project) ? (
+              <button type="button" onClick={() => onPublishProject(project.id)}>
+                Publish {project.title}
+              </button>
+            ) : null}
+            {onUnpublishProject && isPublishedProject(project) ? (
+              <button type="button" onClick={() => onUnpublishProject(project.id)}>
+                Unpublish {project.title}
               </button>
             ) : null}
           </li>

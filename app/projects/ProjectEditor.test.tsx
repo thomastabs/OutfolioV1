@@ -25,6 +25,7 @@ const editableProject = {
   technicalNotes: 'Original notes.',
   contribution: 'Built the workflow.',
   outcome: 'Reusable portfolio entry.',
+  publishedAt: '2026-09-15T21:00:00.000Z',
 };
 
 describe('ProjectEditor', () => {
@@ -100,6 +101,8 @@ describe('ProjectEditor', () => {
     expect(screen.getByDisplayValue('Portfolio Builder')).toBeInTheDocument();
     expect(screen.getByDisplayValue('A project documentation workspace.')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Original notes.')).toBeInTheDocument();
+    expect(screen.getByText('Published at')).toBeInTheDocument();
+    expect(screen.getByText('2026-09-15T21:00:00.000Z')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save project/i })).toBeInTheDocument();
   });
 

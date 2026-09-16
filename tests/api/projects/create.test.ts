@@ -92,6 +92,23 @@ describe('POST /api/v1/projects', () => {
     }));
   });
 
+  it('forces new projects to draft visibility even when another visibility is submitted', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      body: { ...validBody, visibility: 'published' },
+    } as never, res as never);
+
+    expect(deps.prisma.project.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        visibility: 'DRAFT',
+        publishedAt: null,
+      }),
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('returns 400 malformed_input when required fields are missing', async () => {
     const { deps, handler, res } = setup();
 
@@ -178,6 +195,42 @@ describe('GET /api/v1/projects', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       projects: [expect.objectContaining({ id: 'project-1', visibility: 'draft' })],
+    });
+  });
+
+  it('returns an empty project list for authenticated users with no projects', async () => {
+    const prisma = {
+      project: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
+    const handler = createProjectListHandler({ prisma, validateSession });
+    const res = mockResponse();
+
+    await handler({ headers: { cookie: 'next-auth.session-token=valid' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ projects: [] });
+  });
+
+  it('returns 401 when listing projects without a valid session', async () => {
+    const prisma = {
+      project: {
+        findMany: jest.fn(),
+      },
+    };
+    const validateSession = jest.fn().mockReturnValue({ valid: false, reason: 'missing' });
+    const handler = createProjectListHandler({ prisma, validateSession });
+    const res = mockResponse();
+
+    await handler({ headers: {} } as never, res as never);
+
+    expect(prisma.project.findMany).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'missing_or_invalid_auth',
+      message: 'Missing or invalid session.',
     });
   });
 });
