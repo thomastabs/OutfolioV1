@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '../components/Button';
+import { EmptyState } from '../components/EmptyState';
 
 export type ProjectSummary = {
   id: string;
@@ -72,7 +74,7 @@ export function ProjectList({
   const visibleProjects = projects.filter((project) => !deletedProjectIds.includes(project.id));
 
   if (visibleProjects.length === 0) {
-    return <p>No projects yet.</p>;
+    return <EmptyState message="No projects yet." />;
   }
 
   async function confirmDelete() {
@@ -125,30 +127,30 @@ export function ProjectList({
             </dl>
             <div className="responsive-actions">
               {onEditProject ? (
-                <button type="button" onClick={() => onEditProject(project)}>
+                <Button variant="secondary" onClick={() => onEditProject(project)}>
                   Edit {project.title}
-                </button>
+                </Button>
               ) : null}
               {isDraftProject(project) ? (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setDeleteError('');
                     setProjectToDelete(project);
                   }}
                 >
                   Delete {project.title}
-                </button>
+                </Button>
               ) : null}
               {onPublishProject && canPublishProject(project) ? (
-                <button type="button" onClick={() => onPublishProject(project.id)}>
+                <Button onClick={() => onPublishProject(project.id)}>
                   Publish {project.title}
-                </button>
+                </Button>
               ) : null}
               {onUnpublishProject && isPublishedProject(project) ? (
-                <button type="button" onClick={() => onUnpublishProject(project.id)}>
+                <Button variant="secondary" onClick={() => onUnpublishProject(project.id)}>
                   Unpublish {project.title}
-                </button>
+                </Button>
               ) : null}
             </div>
           </li>
@@ -163,12 +165,12 @@ export function ProjectList({
         >
           <h2 id="delete-project-title">Delete {projectToDelete.title}</h2>
           <p>This draft project will be permanently deleted.</p>
-          <button type="button" onClick={confirmDelete} disabled={isDeleting}>
+          <Button onClick={confirmDelete} disabled={isDeleting}>
             {isDeleting ? 'Deleting...' : 'Delete'}
-          </button>
-          <button type="button" onClick={() => setProjectToDelete(null)} disabled={isDeleting}>
+          </Button>
+          <Button variant="secondary" onClick={() => setProjectToDelete(null)} disabled={isDeleting}>
             Cancel
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>

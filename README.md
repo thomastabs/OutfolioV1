@@ -20,7 +20,7 @@ Traceability: this README summarizes implemented work through:
   `9543687`, `9543688`, `9543690`
 - Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
   `9552555`, `9552556`
-- User Interface and Visual Design: Stories `9552558`, `9552559`
+- User Interface and Visual Design: Stories `9552558`, `9552559`, `9552560`
 
 ## Current Scope
 
@@ -42,11 +42,13 @@ The implemented application covers:
   shapes, and form validation states.
 - Responsive layout hooks and CSS media-query rules for auth, profile, project
   management, public portfolio, public project, and discovery pages.
+- Themed reusable UI components for buttons, form inputs, navigation links,
+  project cards, empty states, and validation feedback messages.
 
 The remaining planned scope before final end-to-end validation is:
 
-- Remaining User Interface and Visual Design stories after responsive layout
-  implementation.
+- Remaining User Interface and Visual Design stories after themed component
+  creation.
 
 ## Tech Stack
 
@@ -191,6 +193,7 @@ pnpm test -- --testPathPattern=app/discover/page.tsx.test.tsx
 pnpm test -- app/page.tsx.test.tsx
 pnpm test -- --testPathPattern=app/providers.tsx.test.tsx
 pnpm test -- tests/api/responsive-layout.test.ts
+pnpm test -- tests/api/themed-components.test.ts app/components/Button.test.tsx app/components/FormInput.test.tsx app/components/NavigationLink.test.tsx app/components/ProjectCard.test.tsx app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx
 ```
 
 Schema/model checks:
@@ -362,6 +365,9 @@ visual style guide layer: typography and spacing tokens, color and shape tokens,
 and shared form/validation styles. Story `9552559` applies responsive layout
 classes and CSS media-query rules across auth, profile editor, project
 management, public developer profile, public project, and discovery pages.
+Story `9552560` adds reusable themed components and shared state styles for
+buttons, text inputs, textareas, navigation links, project cards, empty states,
+and validation feedback messages.
 
 Candidate stories:
 
@@ -436,23 +442,11 @@ Candidate stories:
 
 ## Current Local Verification Baseline
 
-At the latest Story `9552559` local verification point:
+At the latest Story `9552560` local verification point:
 
-- `pnpm test -- tests/api/responsive-layout.test.ts --runInBand` passed:
-  1 suite, 4 tests.
-- `pnpm test -- tests/api/style-guide.test.ts --runInBand` passed: 1 suite,
-  4 tests.
-- `pnpm test -- app/register/page.tsx.test.tsx app/register/RegistrationForm.test.tsx app/login/page.tsx.test.tsx app/login/LoginForm.test.tsx --runInBand`
-  passed: 4 suites, 21 tests.
-- `pnpm test -- app/profile/page.tsx.test.tsx app/profile/ProfileEditor.test.tsx --runInBand`
-  passed: 2 suites, 18 tests.
-- `pnpm test -- app/projects/page.tsx.test.tsx app/projects/[id]/page.tsx.test.tsx app/projects/ProjectEditor.test.tsx app/projects/ProjectList.test.tsx --runInBand`
-  passed for matched non-bracketed project tests: 3 suites, 27 tests.
-- `pnpm jest --runTestsByPath 'app/projects/[id]/page.tsx.test.tsx' 'app/developer/[username]/page.tsx.test.tsx' 'app/project/[slug]/page.tsx.test.tsx' --runInBand`
-  passed: 3 suites, 16 tests.
-- `pnpm test -- app/developer/[username]/page.tsx.test.tsx app/project/[slug]/page.tsx.test.tsx app/discover/page.tsx.test.tsx --runInBand`
-  passed for the matched discovery page test: 1 suite, 9 tests.
-- `pnpm test -- --runInBand` passed: 40 suites, 230 tests.
+- `pnpm test -- tests/api/themed-components.test.ts app/components/Button.test.tsx app/components/FormInput.test.tsx app/components/NavigationLink.test.tsx app/components/ProjectCard.test.tsx app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx app/components/PublishedProjectCard.test.tsx app/projects/ProjectList.test.tsx --runInBand`
+  passed: 9 suites, 30 tests.
+- `pnpm test -- --runInBand` passed: 47 suites, 248 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.
