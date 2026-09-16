@@ -80,10 +80,10 @@ function DiscoveryContent() {
   }, [requestUrl]);
 
   return (
-    <main>
+    <main className="page-shell discovery-page">
       <h1>Discover projects</h1>
 
-      <form aria-label="Discovery filters">
+      <form className="responsive-controls discovery-controls" aria-label="Discovery filters">
         <label htmlFor="project-type">Project type</label>
         <select
           id="project-type"
@@ -121,9 +121,9 @@ function DiscoveryContent() {
       ) : null}
 
       {state === 'ready' && projects.length > 0 ? (
-        <ul aria-label="Published projects">
+        <ul className="responsive-card-grid discovery-results" aria-label="Published projects">
           {projects.map((project) => (
-            <li key={project.id}>
+            <li className="responsive-card" key={project.id}>
               <h2>
                 <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
               </h2>

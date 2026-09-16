@@ -106,7 +106,7 @@ export function RegistrationForm({ onRegistered }: RegistrationFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form className="responsive-form auth-form" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="name">Name</label>
         <input

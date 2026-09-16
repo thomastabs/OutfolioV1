@@ -86,7 +86,7 @@ export default function ProjectEditPage({ params }: ProjectEditPageProps) {
   }
 
   return (
-    <main>
+    <main className="page-shell project-edit-page">
       <h1>Edit project</h1>
       <ProjectEditor
         project={project}

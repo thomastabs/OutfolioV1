@@ -90,7 +90,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <main>
+    <main className="page-shell projects-page">
       <h1>Project management workspace</h1>
       {workspaceError ? <p role="alert">{workspaceError}</p> : null}
       {editingProject ? (

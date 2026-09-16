@@ -75,7 +75,7 @@ export default function PublicDeveloperProfilePage() {
 
   if (state === 'unavailable') {
     return (
-      <main>
+      <main className="page-shell public-profile-page">
         <h1>Profile is unavailable.</h1>
       </main>
     );
@@ -83,7 +83,7 @@ export default function PublicDeveloperProfilePage() {
 
   if (state === 'error' || !data) {
     return (
-      <main>
+      <main className="page-shell public-profile-page">
         <h1>Public profile could not be loaded.</h1>
       </main>
     );
@@ -98,10 +98,10 @@ export default function PublicDeveloperProfilePage() {
     : 'Private';
 
   return (
-    <main>
-      <section aria-label={`${data.username} public profile`}>
+    <main className="page-shell public-profile-page">
+      <section className="responsive-section public-profile-summary" aria-label={`${data.username} public profile`}>
         <h1>{data.profile.name || data.username}</h1>
-        <dl>
+        <dl className="responsive-definition-grid">
           <div>
             <dt>Bio</dt>
             <dd>{data.profile.bio || 'No bio added yet'}</dd>
@@ -147,12 +147,12 @@ export default function PublicDeveloperProfilePage() {
         </dl>
       </section>
 
-      <section aria-label="Published projects">
+      <section className="responsive-section" aria-label="Published projects">
         <h2>Published projects</h2>
         {data.publishedProjects.length > 0 ? (
-          <ul>
+          <ul className="responsive-card-grid">
             {data.publishedProjects.map((project) => (
-              <li key={project.id}>
+              <li className="responsive-card" key={project.id}>
                 <h3>
                   <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
                 </h3>

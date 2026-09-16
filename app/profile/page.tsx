@@ -74,7 +74,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main>
+    <main className="page-shell profile-page">
       <h1>Profile workspace</h1>
       {profileStatus === 'loading' ? <p>Loading profile...</p> : null}
       {profileStatus === 'not_found' ? <p>No profile has been created yet.</p> : null}
@@ -94,9 +94,9 @@ function ProfileDetails({ profile }: { profile: ProfileData }) {
   const visibilityText = profile.visibility.charAt(0).toUpperCase() + profile.visibility.slice(1);
 
   return (
-    <section aria-label="Developer profile">
+        <section className="responsive-section profile-summary" aria-label="Developer profile">
       <h2>{profile.name || 'No name added yet'}</h2>
-      <dl>
+      <dl className="responsive-definition-grid">
         <div>
           <dt>Bio</dt>
           <dd>{profile.bio || 'No bio added yet'}</dd>

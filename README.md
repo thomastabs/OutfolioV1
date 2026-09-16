@@ -20,7 +20,7 @@ Traceability: this README summarizes implemented work through:
   `9543687`, `9543688`, `9543690`
 - Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
   `9552555`, `9552556`
-- User Interface and Visual Design: Story `9552558`
+- User Interface and Visual Design: Stories `9552558`, `9552559`
 
 ## Current Scope
 
@@ -40,11 +40,13 @@ The implemented application covers:
   published project highlights.
 - Initial visual style guide tokens for typography, spacing, colors, component
   shapes, and form validation states.
+- Responsive layout hooks and CSS media-query rules for auth, profile, project
+  management, public portfolio, public project, and discovery pages.
 
 The remaining planned scope before final end-to-end validation is:
 
-- Remaining User Interface and Visual Design stories after the visual style
-  guide scaffold.
+- Remaining User Interface and Visual Design stories after responsive layout
+  implementation.
 
 ## Tech Stack
 
@@ -188,6 +190,7 @@ pnpm test -- --testPathPattern='app/project/\\[slug\\]/page.tsx.test.tsx'
 pnpm test -- --testPathPattern=app/discover/page.tsx.test.tsx
 pnpm test -- app/page.tsx.test.tsx
 pnpm test -- --testPathPattern=app/providers.tsx.test.tsx
+pnpm test -- tests/api/responsive-layout.test.ts
 ```
 
 Schema/model checks:
@@ -356,7 +359,9 @@ reviewers without adding new product workflows.
 
 Implementation status: Story `9552558` defines and globally imports the first
 visual style guide layer: typography and spacing tokens, color and shape tokens,
-and shared form/validation styles.
+and shared form/validation styles. Story `9552559` applies responsive layout
+classes and CSS media-query rules across auth, profile editor, project
+management, public developer profile, public project, and discovery pages.
 
 Candidate stories:
 
@@ -431,15 +436,23 @@ Candidate stories:
 
 ## Current Local Verification Baseline
 
-At the latest Story `9552558` local verification point:
+At the latest Story `9552559` local verification point:
 
+- `pnpm test -- tests/api/responsive-layout.test.ts --runInBand` passed:
+  1 suite, 4 tests.
 - `pnpm test -- tests/api/style-guide.test.ts --runInBand` passed: 1 suite,
   4 tests.
-- `pnpm test -- app/register/RegistrationForm.test.tsx app/login/LoginForm.test.tsx app/profile/ProfileEditor.test.tsx app/projects/ProjectEditor.test.tsx app/projects/ProjectList.test.tsx --runInBand`
-  passed: 5 suites, 44 tests.
-- `pnpm test -- app/page.tsx.test.tsx app/components/PublishedProjectCard.test.tsx --runInBand`
-  passed: 2 suites, 10 tests.
-- `pnpm test -- --runInBand` passed: 39 suites, 226 tests.
+- `pnpm test -- app/register/page.tsx.test.tsx app/register/RegistrationForm.test.tsx app/login/page.tsx.test.tsx app/login/LoginForm.test.tsx --runInBand`
+  passed: 4 suites, 21 tests.
+- `pnpm test -- app/profile/page.tsx.test.tsx app/profile/ProfileEditor.test.tsx --runInBand`
+  passed: 2 suites, 18 tests.
+- `pnpm test -- app/projects/page.tsx.test.tsx app/projects/[id]/page.tsx.test.tsx app/projects/ProjectEditor.test.tsx app/projects/ProjectList.test.tsx --runInBand`
+  passed for matched non-bracketed project tests: 3 suites, 27 tests.
+- `pnpm jest --runTestsByPath 'app/projects/[id]/page.tsx.test.tsx' 'app/developer/[username]/page.tsx.test.tsx' 'app/project/[slug]/page.tsx.test.tsx' --runInBand`
+  passed: 3 suites, 16 tests.
+- `pnpm test -- app/developer/[username]/page.tsx.test.tsx app/project/[slug]/page.tsx.test.tsx app/discover/page.tsx.test.tsx --runInBand`
+  passed for the matched discovery page test: 1 suite, 9 tests.
+- `pnpm test -- --runInBand` passed: 40 suites, 230 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.

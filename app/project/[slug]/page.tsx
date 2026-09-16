@@ -93,7 +93,7 @@ export default function PublicProjectPage() {
 
   if (state === 'access-denied') {
     return (
-      <main>
+      <main className="page-shell public-project-page">
         <h1>Access denied</h1>
         <p>This project is unpublished or private.</p>
       </main>
@@ -102,7 +102,7 @@ export default function PublicProjectPage() {
 
   if (state === 'not-found') {
     return (
-      <main>
+      <main className="page-shell public-project-page">
         <h1>Project not found</h1>
         <p>This project does not exist or is unavailable.</p>
       </main>
@@ -111,7 +111,7 @@ export default function PublicProjectPage() {
 
   if (state === 'error' || !project) {
     return (
-      <main>
+      <main className="page-shell public-project-page">
         <h1>Project unavailable</h1>
         <p>The project could not be loaded.</p>
       </main>
@@ -119,8 +119,8 @@ export default function PublicProjectPage() {
   }
 
   return (
-    <main>
-      <article aria-label={`${project.title} public project`}>
+    <main className="page-shell public-project-page">
+      <article className="responsive-section public-project-article" aria-label={`${project.title} public project`}>
         <header>
           <p>{project.owner.name || project.owner.username}</p>
           <h1>{project.title}</h1>
@@ -133,7 +133,7 @@ export default function PublicProjectPage() {
           <p>No cover image added yet.</p>
         )}
 
-        <dl>
+        <dl className="responsive-definition-grid">
           <Field label="Project type" value={project.projectType} />
           <Field label="Role" value={project.role} />
           <Field label="Status" value={project.status} />
@@ -142,7 +142,7 @@ export default function PublicProjectPage() {
         <section aria-label="Project tags">
           <h2>Tags</h2>
           {project.tags.length > 0 ? (
-            <ul>
+            <ul className="responsive-tag-list">
               {project.tags.map((tag) => (
                 <li key={tag}>{tag}</li>
               ))}

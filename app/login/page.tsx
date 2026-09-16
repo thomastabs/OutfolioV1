@@ -25,7 +25,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
+    <main className="page-shell auth-page">
       <h1>Log in to Outfolio</h1>
       <LoginForm onLoggedIn={handleLoggedIn} />
     </main>

@@ -233,7 +233,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   }
 
   return (
-    <form aria-label="Project editor" onSubmit={handleSubmit} noValidate>
+    <form className="responsive-form project-editor-form" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="project-title">Title</label>
         <input id="project-title" value={title} onChange={(event) => setTitle(event.target.value)} />

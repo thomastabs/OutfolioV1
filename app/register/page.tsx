@@ -25,7 +25,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main>
+    <main className="page-shell auth-page">
       <h1>Create your Outfolio account</h1>
       <RegistrationForm onRegistered={handleRegistered} />
     </main>

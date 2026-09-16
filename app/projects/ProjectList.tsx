@@ -107,13 +107,13 @@ export function ProjectList({
   }
 
   return (
-    <section aria-label="Project list">
-      <ul>
+    <section className="responsive-section project-list" aria-label="Project list">
+      <ul className="responsive-card-grid project-list-grid">
         {visibleProjects.map((project) => (
-          <li key={project.id}>
+          <li className="responsive-card" key={project.id}>
             <h2>{project.title}</h2>
             <p>{project.summary}</p>
-            <dl>
+            <dl className="responsive-definition-grid">
               <div>
                 <dt>Status</dt>
                 <dd>{project.status}</dd>
@@ -123,32 +123,34 @@ export function ProjectList({
                 <dd>{visibilityLabel(project.visibility)}</dd>
               </div>
             </dl>
-            {onEditProject ? (
-              <button type="button" onClick={() => onEditProject(project)}>
-                Edit {project.title}
-              </button>
-            ) : null}
-            {isDraftProject(project) ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteError('');
-                  setProjectToDelete(project);
-                }}
-              >
-                Delete {project.title}
-              </button>
-            ) : null}
-            {onPublishProject && canPublishProject(project) ? (
-              <button type="button" onClick={() => onPublishProject(project.id)}>
-                Publish {project.title}
-              </button>
-            ) : null}
-            {onUnpublishProject && isPublishedProject(project) ? (
-              <button type="button" onClick={() => onUnpublishProject(project.id)}>
-                Unpublish {project.title}
-              </button>
-            ) : null}
+            <div className="responsive-actions">
+              {onEditProject ? (
+                <button type="button" onClick={() => onEditProject(project)}>
+                  Edit {project.title}
+                </button>
+              ) : null}
+              {isDraftProject(project) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError('');
+                    setProjectToDelete(project);
+                  }}
+                >
+                  Delete {project.title}
+                </button>
+              ) : null}
+              {onPublishProject && canPublishProject(project) ? (
+                <button type="button" onClick={() => onPublishProject(project.id)}>
+                  Publish {project.title}
+                </button>
+              ) : null}
+              {onUnpublishProject && isPublishedProject(project) ? (
+                <button type="button" onClick={() => onUnpublishProject(project.id)}>
+                  Unpublish {project.title}
+                </button>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>

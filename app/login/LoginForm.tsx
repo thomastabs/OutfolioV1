@@ -81,7 +81,7 @@ export function LoginForm({ onLoggedIn }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form className="responsive-form auth-form" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="login-username">Username</label>
         <input

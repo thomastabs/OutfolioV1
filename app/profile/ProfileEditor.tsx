@@ -133,7 +133,7 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
   }
 
   return (
-    <form aria-label="Profile editor" onSubmit={handleSubmit} noValidate>
+    <form className="responsive-form profile-editor-form" aria-label="Profile editor" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="profile-name">Name</label>
         <input
