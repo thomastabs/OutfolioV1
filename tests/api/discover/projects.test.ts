@@ -158,6 +158,24 @@ describe('GET /api/v1/discover/projects', () => {
     }));
   });
 
+  it('returns an empty list when keyword search has no matches', async () => {
+    const { prisma, handler, res } = setup([]);
+
+    await handler({ query: { keyword: 'missing' } } as never, res as never);
+
+    expect(prisma.project.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        visibility: 'PUBLISHED',
+        OR: [
+          { title: { contains: 'missing', mode: 'insensitive' } },
+          { summary: { contains: 'missing', mode: 'insensitive' } },
+        ],
+      },
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ projects: [] });
+  });
+
   it('combines project type and keyword filters', async () => {
     const { prisma, handler } = setup([publishedProjects[0]]);
 

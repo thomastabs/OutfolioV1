@@ -179,4 +179,31 @@ describe('DiscoveryPage', () => {
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith('/api/v1/discover/projects?keyword=api'));
     expect(await screen.findByText('API Case Study')).toBeInTheDocument();
   });
+
+  it('shows a search no-projects message when keyword search has no matches', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/discover/projects?keyword=missing') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ projects: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ projects: projectList }),
+      } as Response;
+    });
+
+    render(<DiscoveryPage />);
+
+    await screen.findByText('Portfolio Builder');
+    await user.type(screen.getByLabelText('Keyword search'), 'missing');
+
+    await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith('/api/v1/discover/projects?keyword=missing'));
+    expect(await screen.findByText('No published projects found for this search.')).toBeInTheDocument();
+  });
 });

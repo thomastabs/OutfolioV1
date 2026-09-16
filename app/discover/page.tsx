@@ -112,7 +112,9 @@ function DiscoveryContent() {
 
       {state === 'ready' && projects.length === 0 ? (
         <p>
-          {projectType
+          {keyword.trim()
+            ? 'No published projects found for this search.'
+            : projectType
             ? 'No published projects found for this filter.'
             : 'No published projects are currently available for browsing.'}
         </p>
