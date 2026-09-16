@@ -18,6 +18,7 @@ type ProfileEditorProps = {
 };
 
 type ValidationFields = Partial<Record<'experienceYears' | 'links' | 'certifications' | 'visibility' | 'name' | 'bio', string>>;
+const visibilityOptions = ['public', 'private', 'unlisted'];
 
 function listToText(values: string[]) {
   return values.join('\n');
@@ -74,6 +75,10 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
 
     if (parsedLinks.some((link) => !isHttpUrl(link))) {
       errors.links = 'Links must be valid HTTP or HTTPS URLs.';
+    }
+
+    if (!visibilityOptions.includes(visibility)) {
+      errors.visibility = 'Visibility must be public, private, or unlisted.';
     }
 
     return errors;
@@ -187,12 +192,19 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
 
       <div>
         <label htmlFor="profile-visibility">Visibility</label>
-        <select id="profile-visibility" name="visibility" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
+        <select
+          id="profile-visibility"
+          name="visibility"
+          value={visibility}
+          onChange={(event) => setVisibility(event.target.value)}
+          aria-invalid={fieldErrors.visibility ? 'true' : undefined}
+          aria-describedby={fieldErrors.visibility ? 'profile-visibility-error' : undefined}
+        >
           <option value="private">Private</option>
           <option value="public">Public</option>
           <option value="unlisted">Unlisted</option>
         </select>
-        {fieldErrors.visibility ? <p>{fieldErrors.visibility}</p> : null}
+        {fieldErrors.visibility ? <p id="profile-visibility-error">{fieldErrors.visibility}</p> : null}
       </div>
 
       {generalMessage ? <p>{generalMessage}</p> : null}

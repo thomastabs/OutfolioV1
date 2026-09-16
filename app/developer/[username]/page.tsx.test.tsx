@@ -118,6 +118,32 @@ describe('PublicDeveloperProfilePage', () => {
     expect(screen.getByText('No published projects yet.')).toBeInTheDocument();
   });
 
+  it('displays an unlisted profile when opened by direct URL', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        username: 'ada',
+        profile: {
+          userId: 'user-1',
+          name: 'Ada Lovelace',
+          bio: 'Builds rigorous developer tools.',
+          experienceYears: 7,
+          certifications: [],
+          links: [],
+          visibility: 'unlisted',
+        },
+        publishedProjects: [],
+      }),
+    } as Response);
+
+    render(<PublicDeveloperProfilePage />);
+
+    expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(screen.getByText('Unlisted')).toBeInTheDocument();
+    expect(screen.getByText('No published projects yet.')).toBeInTheDocument();
+  });
+
   it('shows an unavailable message when the profile is private', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,

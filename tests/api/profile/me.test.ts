@@ -266,6 +266,22 @@ describe('PUT /api/v1/profile/me', () => {
     });
   });
 
+  it('returns 400 and does not update when the request body is malformed', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      body: null,
+    } as never, res as never);
+
+    expect(deps.prisma.profile.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'malformed_input',
+      message: 'Profile input is malformed.',
+    });
+  });
+
   it('returns 422 and does not update when visibility is invalid', async () => {
     const { deps, handler, res } = setup();
 

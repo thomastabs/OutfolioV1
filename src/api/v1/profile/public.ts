@@ -78,7 +78,7 @@ export function createPublicProfileHandler(deps: PublicProfileDependencies) {
       }
 
       const visibility = normalizeVisibility(user.profile.visibility);
-      if (visibility !== 'public') {
+      if (visibility === 'private') {
         return res.status(403).json({
           error: 'profile_not_public',
           message: 'Profile is not public.',

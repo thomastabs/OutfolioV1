@@ -26,4 +26,14 @@ describe('Profile Prisma schema', () => {
     expect(schema).toMatch(/PRIVATE\s+@map\("private"\)/);
     expect(schema).toMatch(/UNLISTED\s+@map\("unlisted"\)/);
   });
+
+  it('includes a migration that creates a non-null visibility column with a private default', () => {
+    const migration = fs.readFileSync(
+      path.join(process.cwd(), 'prisma/migrations/20260915144600_add_profile_entity/migration.sql'),
+      'utf8',
+    );
+
+    expect(migration).toContain('CREATE TYPE "ProfileVisibility" AS ENUM (\'public\', \'private\', \'unlisted\')');
+    expect(migration).toContain('"visibility" "ProfileVisibility" NOT NULL DEFAULT \'private\'');
+  });
 });

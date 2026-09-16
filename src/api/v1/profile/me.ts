@@ -78,6 +78,17 @@ function validationError(res: Response, fields: Record<string, string>) {
   });
 }
 
+function malformedInput(res: Response) {
+  return res.status(400).json({
+    error: 'malformed_input',
+    message: 'Profile input is malformed.',
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function isHttpUrl(value: string) {
   try {
     const url = new URL(value);
@@ -186,7 +197,11 @@ export function createUpdateProfileMeHandler(deps: ProfileMeDependencies) {
         return missingOrInvalidAuth(res);
       }
 
-      const parsed = parseUpdateInput((req.body ?? {}) as ProfileUpdateInput);
+      if (!isRecord(req.body)) {
+        return malformedInput(res);
+      }
+
+      const parsed = parseUpdateInput(req.body as ProfileUpdateInput);
       if (!parsed.valid) {
         return validationError(res, parsed.fields);
       }

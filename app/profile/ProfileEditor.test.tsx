@@ -178,6 +178,17 @@ describe('ProfileEditor', () => {
     expect(onProfileSaved).not.toHaveBeenCalled();
   });
 
+  it('prevents submission when the selected visibility is invalid', async () => {
+    const user = userEvent.setup();
+
+    render(<ProfileEditor profile={{ ...profile, visibility: 'friends-only' }} onProfileSaved={jest.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /save profile/i }));
+
+    expect(await screen.findByText('Visibility must be public, private, or unlisted.')).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('shows a general error message for unexpected save failures', async () => {
     const user = userEvent.setup();
     jest.spyOn(global, 'fetch').mockResolvedValue({

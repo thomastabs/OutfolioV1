@@ -157,8 +157,8 @@ describe('GET /api/v1/profile/public/:username', () => {
     }));
   });
 
-  it('returns 403 for unlisted profiles', async () => {
-    const { handler, res } = setup({
+  it('returns public profile data and published projects for unlisted profiles by direct URL', async () => {
+    const { deps, handler, res } = setup({
       prisma: {
         user: {
           findUnique: jest.fn().mockResolvedValue({
@@ -174,10 +174,19 @@ describe('GET /api/v1/profile/public/:username', () => {
 
     await handler({ params: { username: 'ada' } } as never, res as never);
 
-    expect(res.status).toHaveBeenCalledWith(403);
+    expect(deps.prisma.project.findMany).toHaveBeenCalledWith({
+      where: { ownerId: user.id, visibility: 'PUBLISHED' },
+      select: { id: true, title: true, slug: true, summary: true },
+      orderBy: { title: 'asc' },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'profile_not_public',
-      message: 'Profile is not public.',
+      username: 'ada',
+      profile: expect.objectContaining({
+        userId: 'user-1',
+        visibility: 'unlisted',
+      }),
+      publishedProjects: [],
     });
   });
 
