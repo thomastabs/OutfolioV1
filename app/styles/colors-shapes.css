@@ -1,0 +1,132 @@
+/*
+ * Outfolio visual style guide: color palette, surfaces, component shapes,
+ * buttons, links, and icon affordances.
+ */
+
+:root {
+  --color-primary: #0f766e;
+  --color-primary-hover: #115e59;
+  --color-primary-soft: #ccfbf1;
+  --color-secondary: #c2410c;
+  --color-secondary-hover: #9a3412;
+  --color-secondary-soft: #ffedd5;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-overlay: rgba(15, 23, 42, 0.48);
+  --color-text: #172033;
+  --color-text-muted: #5b6577;
+  --color-border: #ccd5e1;
+  --color-border-strong: #94a3b8;
+  --color-error: #b42318;
+  --color-error-soft: #fee4e2;
+  --color-success: #087443;
+  --color-focus: #2563eb;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.5rem;
+  --radius-pill: 999px;
+  --button-padding-block: 0.625rem;
+  --button-padding-inline: 1rem;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.24);
+  --icon-size: 1.25rem;
+  --icon-color: var(--color-primary);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  margin: 0;
+}
+
+main {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-xl);
+}
+
+a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+button,
+a[class],
+.home-actions a,
+.home-highlights a {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  display: inline-flex;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  line-height: var(--line-height-caption);
+  min-height: 2.5rem;
+  padding: var(--button-padding-block) var(--button-padding-inline);
+  text-decoration: none;
+}
+
+button,
+.home-actions a:first-of-type,
+.home-primary-link {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+
+button:hover,
+.home-actions a:first-of-type:hover,
+.home-primary-link:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-surface);
+}
+
+.home-actions a,
+.home-highlights a {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+button:focus-visible,
+a:focus-visible {
+  box-shadow: var(--shadow-focus);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+svg,
+.icon {
+  color: var(--icon-color);
+  height: var(--icon-size);
+  width: var(--icon-size);
+}
+
+section,
+article,
+.published-project-card {
+  border-radius: var(--radius-card);
+}
+
+.published-project-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-lg);
+}

@@ -40,10 +40,10 @@ function missingDeploymentEnv(env: NodeJS.ProcessEnv = process.env) {
   return requiredDeploymentEnv.filter((name) => !env[name]);
 }
 
-function loadHandler<TModule extends Record<string, ApiHandler>>(loader: () => Promise<TModule>, name: keyof TModule) {
+function loadHandler<TModule, TName extends keyof TModule>(loader: () => Promise<TModule>, name: TName) {
   return async () => {
     const module = await loader();
-    return module[name];
+    return module[name] as ApiHandler;
   };
 }
 
@@ -124,6 +124,12 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
   if (method === 'GET' && first === 'discover' && second === 'projects') {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/discover/projects'), 'discoverProjectsHandler'),
+    };
+  }
+
+  if (method === 'GET' && first === 'home' && second === 'dashboard' && !third) {
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/home/dashboard'), 'homeDashboardHandler'),
     };
   }
 

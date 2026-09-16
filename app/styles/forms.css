@@ -1,0 +1,73 @@
+/*
+ * Outfolio visual style guide: form controls and validation states.
+ * These selectors intentionally target semantic form elements used across
+ * registration, login, profile, and project editor flows.
+ */
+
+form {
+  display: grid;
+  gap: var(--space-md);
+}
+
+label {
+  display: grid;
+  gap: var(--space-xs);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body);
+}
+
+input,
+textarea,
+select {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  min-height: 2.5rem;
+  padding: var(--space-sm) var(--space-md);
+  width: 100%;
+}
+
+textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--color-focus);
+  box-shadow: var(--shadow-focus);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.22);
+}
+
+[aria-invalid="true"] + p,
+[id$="-error"],
+[role="alert"] {
+  color: var(--color-error);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-caption);
+  margin-bottom: 0;
+}

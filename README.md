@@ -18,6 +18,9 @@ Traceability: this README summarizes implemented work through:
 - Project Discovery and Browsing: Stories `9543679`, `9543680`, `9543681`
 - Quality, Deployment and Demo Readiness: Stories `9543689`, `9543686`,
   `9543687`, `9543688`, `9543690`
+- Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
+  `9552555`, `9552556`
+- User Interface and Visual Design: Story `9552558`
 
 ## Current Scope
 
@@ -33,8 +36,15 @@ The implemented application covers:
 - Public project pages for published project case studies.
 - Discovery browsing for published projects, including project type filtering
   and keyword search.
+- Home dashboard at `/`, including product positioning, auth-aware actions, and
+  published project highlights.
+- Initial visual style guide tokens for typography, spacing, colors, component
+  shapes, and form validation states.
 
-The next epic is Quality, Deployment and Demo Readiness.
+The remaining planned scope before final end-to-end validation is:
+
+- Remaining User Interface and Visual Design stories after the visual style
+  guide scaffold.
 
 ## Tech Stack
 
@@ -50,6 +60,7 @@ The next epic is Quality, Deployment and Demo Readiness.
 
 ## Important Paths
 
+- `/` - home dashboard route
 - `app/register` - registration page and form
 - `app/login` - login page and form
 - `app/profile` - authenticated profile workspace
@@ -62,10 +73,12 @@ The next epic is Quality, Deployment and Demo Readiness.
 - `src/api/v1/projects` - authenticated project handlers
 - `src/api/v1/public` - public project handler
 - `src/api/v1/discover` - discovery handlers
+- `src/api/v1/home` - home dashboard handler
 - `src/api/v1/index.ts` - mounted API v1 Express router and deployment env
   guard
 - `app/api/v1/[...path]/route.ts` - Next.js App Router API bridge for
   deployed `/api/v1` routes
+- `app/styles` - global visual style guide CSS variables and form styles
 - `prisma/schema.prisma` - User, Profile, and Project data model
 - `demonstration-log.local.md` - local, gitignored thesis demonstration log
 
@@ -160,6 +173,7 @@ pnpm test -- tests/api/projects/publish.test.ts
 pnpm test -- tests/api/projects/unpublish.test.ts
 pnpm test -- tests/api/public/project.test.ts
 pnpm test -- tests/api/discover/projects.test.ts
+pnpm test -- tests/api/home/dashboard.test.ts
 ```
 
 Focused frontend checks:
@@ -172,6 +186,7 @@ pnpm test -- --testPathPattern=app/projects
 pnpm test -- --testPathPattern='app/developer/\\[username\\]/page.tsx.test.tsx'
 pnpm test -- --testPathPattern='app/project/\\[slug\\]/page.tsx.test.tsx'
 pnpm test -- --testPathPattern=app/discover/page.tsx.test.tsx
+pnpm test -- app/page.tsx.test.tsx
 pnpm test -- --testPathPattern=app/providers.tsx.test.tsx
 ```
 
@@ -304,13 +319,127 @@ is configured with the required secrets and the deployed `NEXTAUTH_URL`.
 - `/discover` lists published projects and supports project type filtering,
   keyword search, loading, empty, filtered-empty, search-empty, and error states.
 
+### Home Dashboard
+
+- `GET /api/v1/home/dashboard` returns the Outfolio product name, value
+  proposition, authenticated session state, and published project highlights.
+- `/` renders the home dashboard instead of a missing page.
+- The home dashboard shows register, login, and discovery links to visitors.
+- Unauthenticated visitors do not receive user-specific session fields and do
+  not see profile or project workspace actions.
+- Authenticated developers see profile and project workspace actions.
+- The home dashboard checks `GET /api/v1/auth/session` to drive authenticated
+  navigation state.
+- Published project highlights render as project cards with title, summary, and
+  a clean missing-summary fallback.
+- Published project empty/error states are handled gracefully, including clear
+  visitor navigation when no projects are available.
+- Home dashboard navigation links for Register, Login, Discover, Profile, and
+  Projects have focused frontend coverage.
+
+## Planned Finishing Epics
+
+Traceability: these epics were added as planned scope after Story `9543690`
+deployment readiness and before the final end-to-end validation story. They are
+partially implemented where noted below.
+
+### User Interface and Visual Design
+
+Problem: the implemented MVP proves the functional product loop, but the
+requirements did not explicitly cover UI/UX polish, visual hierarchy, branding,
+responsive layout, or accessibility. Without this epic, the product could be
+technically complete but visually generic or hard to use.
+
+Goal: create a cohesive, responsive, accessible Outfolio interface that makes
+the portfolio experience feel credible to developers, recruiters, and technical
+reviewers without adding new product workflows.
+
+Implementation status: Story `9552558` defines and globally imports the first
+visual style guide layer: typography and spacing tokens, color and shape tokens,
+and shared form/validation styles.
+
+Candidate stories:
+
+- **Design Visual Style Guide** - Define the MVP visual direction, including
+  typography, spacing, color usage, component shape, icon usage, form states,
+  validation states, status treatments, and overall interface tone.
+- **Implement Responsive Layouts** - Make existing pages work well across
+  mobile, tablet, and desktop widths, covering auth, profile, projects, public
+  portfolio pages, and discovery.
+- **Create Themed UI Components** - Refine common UI patterns such as buttons,
+  inputs, textareas, selects, navigation, cards, empty states, loading states,
+  validation messages, and status labels.
+- **Apply Branding and Color Schemes** - Apply a consistent Outfolio identity,
+  including palette, contrast, surface treatment, calls to action, and visual
+  cues for draft, published, private, and unlisted states.
+- **User Interface Accessibility Enhancements** - Improve keyboard navigation,
+  focus visibility, semantic headings, form labels, validation feedback,
+  contrast, and screen-reader-friendly empty/error states.
+
+### Home Dashboard
+
+Problem: the deployed domain currently has no root experience. Directly opening
+`/` shows a missing page even though the implemented product routes work.
+
+Goal: implement `/` as a useful home dashboard that orients visitors and routes
+authenticated developers into the existing Outfolio workflows.
+
+Implementation status: Story `9552550` implements the first Home Dashboard
+slice: the root route, dashboard API, auth-aware actions, published project
+highlights, empty states, and error handling.
+
+Story `9552551` verifies and constrains the unauthenticated visitor slice:
+public dashboard data, unauthenticated session state, visitor navigation, and
+no profile/project workspace links for visitors.
+
+Story `9552553` verifies and implements the authenticated developer slice:
+the home page checks `GET /api/v1/auth/session`, shows profile/project
+workspace links for logged-in developers, and hides Register/Login actions.
+
+Story `9552554` verifies and implements the published project highlights slice:
+the home dashboard uses `GET /api/v1/home/dashboard`, relies on the backend's
+published-only Prisma query, renders highlight cards, and shows registration
+and discovery actions when there are no published highlights.
+
+Story `9552555` verifies the no-projects empty state slice: the dashboard API
+returns an empty `publishedProjects` array, unauthenticated users keep
+Register/Login/Discover navigation, and no project-card placeholder UI appears
+when no projects exist.
+
+Story `9552556` verifies the home navigation-link slice: unauthenticated links
+target `/register`, `/login`, and `/discover`; authenticated links target
+`/profile` and `/projects`; and click interactions are covered in frontend
+tests.
+
+Candidate stories:
+
+- **Create Home Dashboard Route** - Implement `/` as a dashboard with product
+  identity, concise value proposition, and navigation to public and
+  authentication flows.
+- **Add Auth-Aware Home Dashboard Actions** - Show register, login, and
+  discover actions to visitors; show profile and project workspace actions to
+  authenticated developers.
+- **Show Published Project Highlights** - Display a small set of published
+  project highlights or recent public portfolio entries, preferably reusing
+  existing discovery/public project data.
+- **Handle Empty Home Dashboard States** - Keep the dashboard useful and
+  polished when no published projects exist yet.
+- **Connect Home Dashboard Navigation to Core Flows** - Verify dashboard links
+  route correctly to `/register`, `/login`, `/profile`, `/projects`,
+  `/discover`, `/developer/{username}`, and `/project/{slug}` where
+  appropriate.
+
 ## Current Local Verification Baseline
 
-At the latest Story `9543690` local verification point:
+At the latest Story `9552558` local verification point:
 
-- `pnpm test -- tests/api/v1/deployment-router.test.ts` passed: 1 suite,
-  5 tests.
-- `pnpm test` passed: 35 suites, 207 tests.
+- `pnpm test -- tests/api/style-guide.test.ts --runInBand` passed: 1 suite,
+  4 tests.
+- `pnpm test -- app/register/RegistrationForm.test.tsx app/login/LoginForm.test.tsx app/profile/ProfileEditor.test.tsx app/projects/ProjectEditor.test.tsx app/projects/ProjectList.test.tsx --runInBand`
+  passed: 5 suites, 44 tests.
+- `pnpm test -- app/page.tsx.test.tsx app/components/PublishedProjectCard.test.tsx --runInBand`
+  passed: 2 suites, 10 tests.
+- `pnpm test -- --runInBand` passed: 39 suites, 226 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.

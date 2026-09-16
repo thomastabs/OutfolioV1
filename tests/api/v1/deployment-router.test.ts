@@ -42,6 +42,7 @@ describe('API v1 deployment router', () => {
     expect(apiV1RouteMounts).toEqual({
       auth: '/auth',
       discover: '/discover',
+      home: '/home',
       profile: '/profile',
       projects: '/projects',
       public: '/public',

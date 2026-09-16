@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 
 import { authRouter } from './auth';
 import { discoverRouter } from './discover';
+import { homeRouter } from './home';
 import { profileRouter } from './profile';
 import { projectsRouter } from './projects';
 import { publicRouter } from './public';
@@ -20,6 +21,7 @@ export const apiV1MountPath = '/api/v1';
 export const apiV1RouteMounts = {
   auth: '/auth',
   discover: '/discover',
+  home: '/home',
   profile: '/profile',
   projects: '/projects',
   public: '/public',
@@ -53,6 +55,7 @@ export function createApiV1Router() {
 
   router.use(apiV1RouteMounts.auth, authRouter);
   router.use(apiV1RouteMounts.discover, discoverRouter);
+  router.use(apiV1RouteMounts.home, homeRouter);
   router.use(apiV1RouteMounts.profile, profileRouter);
   router.use(apiV1RouteMounts.projects, projectsRouter);
   router.use(apiV1RouteMounts.public, publicRouter);

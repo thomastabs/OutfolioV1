@@ -30,4 +30,12 @@ describe('App Router API deployment bridge', () => {
     expect(source).toContain("first === 'health'");
     expect(source).toContain("status: 'ok'");
   });
+
+  it('routes the home dashboard endpoint through the deployed API bridge', () => {
+    const source = fs.readFileSync(routePath, 'utf8');
+
+    expect(source).toContain("first === 'home'");
+    expect(source).toContain("second === 'dashboard'");
+    expect(source).toContain("import('@/src/api/v1/home/dashboard')");
+  });
 });
