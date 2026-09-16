@@ -2,5 +2,8 @@
 apex.md
 screenshots/
 demonstration-log.local.md
+.env
+.env.*
+env
 node_modules
 .next

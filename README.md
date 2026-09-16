@@ -16,6 +16,8 @@ Traceability: this README summarizes implemented work through:
 - Public Portfolio Viewing Experience: Stories `9543672`, `9543673`,
   `9543674`
 - Project Discovery and Browsing: Stories `9543679`, `9543680`, `9543681`
+- Quality, Deployment and Demo Readiness: Stories `9543689`, `9543686`,
+  `9543687`, `9543688`, `9543690`
 
 ## Current Scope
 
@@ -39,7 +41,8 @@ The next epic is Quality, Deployment and Demo Readiness.
 - Runtime: Node.js `20.x`
 - Package manager: `pnpm`
 - Frontend: Next.js 14 app directory with React and TypeScript
-- API layer: Express-style route handlers under `src/api/v1`
+- API layer: Express-style route handlers under `src/api/v1`, mounted for
+  Vercel through `api/v1/[...path].ts`
 - ORM: Prisma
 - Database/auth provider: Supabase Postgres/Auth
 - Browser sessions: NextAuth-compatible session cookie handling
@@ -59,6 +62,9 @@ The next epic is Quality, Deployment and Demo Readiness.
 - `src/api/v1/projects` - authenticated project handlers
 - `src/api/v1/public` - public project handler
 - `src/api/v1/discover` - discovery handlers
+- `src/api/v1/index.ts` - mounted API v1 Express router and deployment env
+  guard
+- `api/v1/[...path].ts` - Vercel catch-all serverless function for `/api/v1`
 - `prisma/schema.prisma` - User, Profile, and Project data model
 - `demonstration-log.local.md` - local, gitignored thesis demonstration log
 
@@ -77,6 +83,20 @@ NEXTAUTH_SECRET=
 
 Unit tests mock external services and do not require live Supabase credentials.
 Running the app against real data does require the environment variables above.
+
+For the current Supabase project created for Story `9543690`, use:
+
+```bash
+SUPABASE_URL=https://rclasxysrxfqnszkknfy.supabase.co
+SUPABASE_ANON_KEY=<project-publishable-key>
+SUPABASE_SERVICE_ROLE_KEY=<project-service-role-key>
+DATABASE_URL=postgresql://postgres:<database-password>@db.rclasxysrxfqnszkknfy.supabase.co:5432/postgres
+NEXTAUTH_URL=<deployed-application-url>
+NEXTAUTH_SECRET=<strong-random-secret>
+```
+
+Do not commit real `.env` files, database passwords, service-role keys, or
+session secrets.
 
 ## Install
 
@@ -161,6 +181,70 @@ pnpm test -- tests/api/prisma/profile-schema.test.ts
 pnpm test -- tests/api/prisma/project-schema.test.ts
 ```
 
+Deployment-readiness checks:
+
+```bash
+pnpm test -- tests/api/v1/deployment-router.test.ts
+pnpm build
+```
+
+## Production Deployment
+
+Traceability: this section covers Story `9543690`, deployment technical
+requirements DT-1 and DT-3, and runtime requirements RT-1, RT-2, and RT-3.
+
+The real infrastructure delta for Story `9543690` is the API v1 serverless
+mount plus production environment and database migration verification. The
+application code now exposes the Express API router through
+`api/v1/[...path].ts`, so Vercel can route `/api/v1/*` requests to the backend
+handlers.
+
+Required production environment variables:
+
+```bash
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+NEXTAUTH_URL
+NEXTAUTH_SECRET
+```
+
+If any of those values are missing in production, `/api/v1` returns a
+configuration error instead of silently running with placeholder credentials.
+
+Recommended deployment preparation:
+
+```bash
+corepack prepare pnpm@9.12.3 --activate
+pnpm install
+pnpm prisma generate
+pnpm test
+pnpm build
+```
+
+Supabase linking commands, once the Supabase CLI is authenticated:
+
+```bash
+pnpm dlx supabase login
+pnpm dlx supabase init
+pnpm dlx supabase link --project-ref rclasxysrxfqnszkknfy
+```
+
+In non-interactive shells, `pnpm dlx supabase login` requires either
+`--token <access-token>` or a `SUPABASE_ACCESS_TOKEN` environment variable.
+
+Apply database migrations to the Supabase Postgres database only after
+`DATABASE_URL` contains the real database password:
+
+```bash
+pnpm prisma migrate deploy
+```
+
+The Supabase database migrations for Story `9543690` have been applied. The
+production deployment cannot be fully verified until the deployment environment
+is configured with the required secrets and the deployed `NEXTAUTH_URL`.
+
 ## Implemented Behavior By Epic
 
 ### Authentication and Session Management
@@ -219,11 +303,16 @@ pnpm test -- tests/api/prisma/project-schema.test.ts
 
 ## Current Local Verification Baseline
 
-At the latest Story `9543681` verification point:
+At the latest Story `9543690` local verification point:
 
-- `pnpm test` passed: 30 suites, 177 tests.
+- `pnpm test -- tests/api/v1/deployment-router.test.ts` passed: 1 suite,
+  5 tests.
+- `pnpm test` passed: 33 suites, 202 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
+- `pnpm prisma migrate deploy` passed against the linked Supabase database.
+- Full deployed-app verification is pending a production deployment URL and
+  host-side environment variable configuration.
 
 ## Known Local Notes
 
