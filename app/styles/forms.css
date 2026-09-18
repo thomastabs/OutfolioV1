@@ -112,6 +112,15 @@ select:disabled {
   gap: var(--space-sm);
 }
 
+.home-page {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.home-highlights {
+  margin-top: var(--space-xl);
+}
+
 .responsive-card-grid {
   display: grid;
   gap: var(--space-lg);
