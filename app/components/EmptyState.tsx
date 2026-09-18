@@ -11,6 +11,9 @@ export type EmptyStateProps = {
 export function EmptyState({ children, message = 'Nothing to show yet.' }: EmptyStateProps) {
   return (
     <section className="empty-state" role="status" aria-live="polite">
+      <span className="empty-state__icon" aria-hidden="true">
+        i
+      </span>
       <p>{message}</p>
       {children ? <div className="empty-state__actions">{children}</div> : null}
     </section>

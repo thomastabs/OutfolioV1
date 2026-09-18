@@ -11,6 +11,7 @@ export type ValidationMessageProps = {
  */
 export function ValidationMessage({ id, message, type = 'error' }: ValidationMessageProps) {
   const role = type === 'error' ? 'alert' : 'status';
+  const icon = type === 'error' ? '!' : 'i';
 
   return (
     <p
@@ -19,7 +20,10 @@ export function ValidationMessage({ id, message, type = 'error' }: ValidationMes
       role={role}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
     >
-      {message}
+      <span className="validation-message__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span>{message}</span>
     </p>
   );
 }

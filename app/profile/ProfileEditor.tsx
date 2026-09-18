@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ValidationMessage } from '../components/ValidationMessage';
 
 export type ProfileData = {
   userId: string;
@@ -144,7 +145,7 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
           aria-invalid={fieldErrors.name ? 'true' : undefined}
           aria-describedby={fieldErrors.name ? 'profile-name-error' : undefined}
         />
-        {fieldErrors.name ? <p id="profile-name-error">{fieldErrors.name}</p> : null}
+        {fieldErrors.name ? <ValidationMessage id="profile-name-error" message={fieldErrors.name} /> : null}
       </div>
 
       <div>
@@ -161,9 +162,12 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
           min="0"
           value={experienceYears}
           onChange={(event) => setExperienceYears(event.target.value)}
+          aria-invalid={fieldErrors.experienceYears ? 'true' : undefined}
           aria-describedby={fieldErrors.experienceYears ? 'profile-experience-error' : undefined}
         />
-        {fieldErrors.experienceYears ? <p id="profile-experience-error">{fieldErrors.experienceYears}</p> : null}
+        {fieldErrors.experienceYears ? (
+          <ValidationMessage id="profile-experience-error" message={fieldErrors.experienceYears} />
+        ) : null}
       </div>
 
       <div>
@@ -173,9 +177,12 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
           name="certifications"
           value={certifications}
           onChange={(event) => setCertifications(event.target.value)}
+          aria-invalid={fieldErrors.certifications ? 'true' : undefined}
           aria-describedby={fieldErrors.certifications ? 'profile-certifications-error' : undefined}
         />
-        {fieldErrors.certifications ? <p id="profile-certifications-error">{fieldErrors.certifications}</p> : null}
+        {fieldErrors.certifications ? (
+          <ValidationMessage id="profile-certifications-error" message={fieldErrors.certifications} />
+        ) : null}
       </div>
 
       <div>
@@ -185,9 +192,10 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
           name="links"
           value={links}
           onChange={(event) => setLinks(event.target.value)}
+          aria-invalid={fieldErrors.links ? 'true' : undefined}
           aria-describedby={fieldErrors.links ? 'profile-links-error' : undefined}
         />
-        {fieldErrors.links ? <p id="profile-links-error">{fieldErrors.links}</p> : null}
+        {fieldErrors.links ? <ValidationMessage id="profile-links-error" message={fieldErrors.links} /> : null}
       </div>
 
       <div>
@@ -204,10 +212,12 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
           <option value="public">Public</option>
           <option value="unlisted">Unlisted</option>
         </select>
-        {fieldErrors.visibility ? <p id="profile-visibility-error">{fieldErrors.visibility}</p> : null}
+        {fieldErrors.visibility ? (
+          <ValidationMessage id="profile-visibility-error" message={fieldErrors.visibility} />
+        ) : null}
       </div>
 
-      {generalMessage ? <p>{generalMessage}</p> : null}
+      {generalMessage ? <p role="status" aria-live="polite">{generalMessage}</p> : null}
 
       <button type="submit" disabled={isSaving}>
         {isSaving ? 'Saving...' : 'Save profile'}

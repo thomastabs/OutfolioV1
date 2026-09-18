@@ -83,7 +83,9 @@ function DiscoveryContent() {
     <main className="page-shell discovery-page">
       <h1>Discover projects</h1>
 
-      <form className="responsive-controls discovery-controls" aria-label="Discovery filters">
+      <section aria-labelledby="discovery-filters-heading">
+        <h2 id="discovery-filters-heading" className="visually-hidden">Filter projects</h2>
+        <form className="responsive-controls discovery-controls">
         <label htmlFor="project-type">Project type</label>
         <select
           id="project-type"
@@ -104,7 +106,8 @@ function DiscoveryContent() {
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
         />
-      </form>
+        </form>
+      </section>
 
       {state === 'loading' ? <p>Loading projects...</p> : null}
 
@@ -121,17 +124,20 @@ function DiscoveryContent() {
       ) : null}
 
       {state === 'ready' && projects.length > 0 ? (
-        <ul className="responsive-card-grid discovery-results" aria-label="Published projects">
-          {projects.map((project) => (
-            <li className="responsive-card" key={project.id}>
-              <h2>
-                <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
-              </h2>
-              <p>{project.summary || 'No summary added yet.'}</p>
-              <p>{project.developerName}</p>
-            </li>
-          ))}
-        </ul>
+        <section aria-labelledby="discovery-results-heading">
+          <h2 id="discovery-results-heading" className="visually-hidden">Published projects</h2>
+          <ul className="responsive-card-grid discovery-results" aria-label="Published projects">
+            {projects.map((project) => (
+              <li className="responsive-card" key={project.id}>
+                <h3>
+                  <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
+                </h3>
+                <p>{project.summary || 'No summary added yet.'}</p>
+                <p>{project.developerName}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </main>
   );

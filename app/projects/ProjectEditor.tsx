@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ValidationMessage } from '../components/ValidationMessage';
 import type { ProjectSummary } from './ProjectList';
 
 export type ProjectData = ProjectSummary & {
@@ -236,18 +237,36 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     <form className="responsive-form project-editor-form" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div>
         <label htmlFor="project-title">Title</label>
-        <input id="project-title" value={title} onChange={(event) => setTitle(event.target.value)} />
-        {fieldErrors.title ? <p>{fieldErrors.title}</p> : null}
+        <input
+          id="project-title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          aria-invalid={fieldErrors.title ? 'true' : undefined}
+          aria-describedby={fieldErrors.title ? 'project-title-error' : undefined}
+        />
+        {fieldErrors.title ? <ValidationMessage id="project-title-error" message={fieldErrors.title} /> : null}
       </div>
       <div>
         <label htmlFor="project-summary">Summary</label>
-        <textarea id="project-summary" value={summary} onChange={(event) => setSummary(event.target.value)} />
-        {fieldErrors.summary ? <p>{fieldErrors.summary}</p> : null}
+        <textarea
+          id="project-summary"
+          value={summary}
+          onChange={(event) => setSummary(event.target.value)}
+          aria-invalid={fieldErrors.summary ? 'true' : undefined}
+          aria-describedby={fieldErrors.summary ? 'project-summary-error' : undefined}
+        />
+        {fieldErrors.summary ? <ValidationMessage id="project-summary-error" message={fieldErrors.summary} /> : null}
       </div>
       <div>
         <label htmlFor="project-role">Role</label>
-        <input id="project-role" value={role} onChange={(event) => setRole(event.target.value)} />
-        {fieldErrors.role ? <p>{fieldErrors.role}</p> : null}
+        <input
+          id="project-role"
+          value={role}
+          onChange={(event) => setRole(event.target.value)}
+          aria-invalid={fieldErrors.role ? 'true' : undefined}
+          aria-describedby={fieldErrors.role ? 'project-role-error' : undefined}
+        />
+        {fieldErrors.role ? <ValidationMessage id="project-role-error" message={fieldErrors.role} /> : null}
       </div>
       <div>
         <label htmlFor="project-type">Project type</label>
@@ -255,18 +274,38 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       </div>
       <div>
         <label htmlFor="project-status">Status</label>
-        <input id="project-status" value={status} onChange={(event) => setStatus(event.target.value)} />
-        {fieldErrors.status ? <p>{fieldErrors.status}</p> : null}
+        <input
+          id="project-status"
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          aria-invalid={fieldErrors.status ? 'true' : undefined}
+          aria-describedby={fieldErrors.status ? 'project-status-error' : undefined}
+        />
+        {fieldErrors.status ? <ValidationMessage id="project-status-error" message={fieldErrors.status} /> : null}
       </div>
       <div>
         <label htmlFor="project-tags">Tags</label>
-        <input id="project-tags" value={tags} onChange={(event) => setTags(event.target.value)} />
-        {fieldErrors.tags ? <p>{fieldErrors.tags}</p> : null}
+        <input
+          id="project-tags"
+          value={tags}
+          onChange={(event) => setTags(event.target.value)}
+          aria-invalid={fieldErrors.tags ? 'true' : undefined}
+          aria-describedby={fieldErrors.tags ? 'project-tags-error' : undefined}
+        />
+        {fieldErrors.tags ? <ValidationMessage id="project-tags-error" message={fieldErrors.tags} /> : null}
       </div>
       <div>
         <label htmlFor="project-cover">Cover image URL</label>
-        <input id="project-cover" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} />
-        {fieldErrors.coverImageUrl ? <p>{fieldErrors.coverImageUrl}</p> : null}
+        <input
+          id="project-cover"
+          value={coverImageUrl}
+          onChange={(event) => setCoverImageUrl(event.target.value)}
+          aria-invalid={fieldErrors.coverImageUrl ? 'true' : undefined}
+          aria-describedby={fieldErrors.coverImageUrl ? 'project-cover-error' : undefined}
+        />
+        {fieldErrors.coverImageUrl ? (
+          <ValidationMessage id="project-cover-error" message={fieldErrors.coverImageUrl} />
+        ) : null}
       </div>
       <div>
         <label htmlFor="project-problem">Problem</label>
@@ -290,12 +329,20 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       </div>
       <div>
         <label htmlFor="project-visibility">Visibility</label>
-        <select id="project-visibility" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
+        <select
+          id="project-visibility"
+          value={visibility}
+          onChange={(event) => setVisibility(event.target.value)}
+          aria-invalid={fieldErrors.visibility ? 'true' : undefined}
+          aria-describedby={fieldErrors.visibility ? 'project-visibility-error' : undefined}
+        >
           <option value="draft">Draft</option>
           <option value="published">Published</option>
           <option value="unpublished">Unpublished</option>
         </select>
-        {fieldErrors.visibility ? <p>{fieldErrors.visibility}</p> : null}
+        {fieldErrors.visibility ? (
+          <ValidationMessage id="project-visibility-error" message={fieldErrors.visibility} />
+        ) : null}
       </div>
       {project?.publishedAt ? (
         <div>
@@ -303,7 +350,13 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           <p>{project.publishedAt}</p>
         </div>
       ) : null}
-      {message ? <p>{message}</p> : null}
+      {message ? (
+        message.includes('could not') || message.includes('Choose') ? (
+          <ValidationMessage message={message} />
+        ) : (
+          <p role="status" aria-live="polite">{message}</p>
+        )
+      ) : null}
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save project' : 'Create project')}
       </button>

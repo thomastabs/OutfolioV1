@@ -42,8 +42,8 @@ textarea:focus-visible,
 select:focus-visible {
   border-color: var(--color-focus);
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 input:disabled,

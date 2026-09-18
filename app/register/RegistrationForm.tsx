@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { ValidationMessage } from '../components/ValidationMessage';
 
 type FormValues = {
   name: string;
@@ -117,7 +118,7 @@ export function RegistrationForm({ onRegistered }: RegistrationFormProps) {
           aria-invalid={Boolean(fieldErrors.name)}
           aria-describedby={fieldErrors.name ? 'name-error' : undefined}
         />
-        {fieldErrors.name ? <p id="name-error">{fieldErrors.name}</p> : null}
+        {fieldErrors.name ? <ValidationMessage id="name-error" message={fieldErrors.name} /> : null}
       </div>
 
       <div>
@@ -130,7 +131,7 @@ export function RegistrationForm({ onRegistered }: RegistrationFormProps) {
           aria-invalid={Boolean(fieldErrors.username)}
           aria-describedby={fieldErrors.username ? 'username-error' : undefined}
         />
-        {fieldErrors.username ? <p id="username-error">{fieldErrors.username}</p> : null}
+        {fieldErrors.username ? <ValidationMessage id="username-error" message={fieldErrors.username} /> : null}
       </div>
 
       <div>
@@ -144,7 +145,7 @@ export function RegistrationForm({ onRegistered }: RegistrationFormProps) {
           aria-invalid={Boolean(fieldErrors.email)}
           aria-describedby={fieldErrors.email ? 'email-error' : undefined}
         />
-        {fieldErrors.email ? <p id="email-error">{fieldErrors.email}</p> : null}
+        {fieldErrors.email ? <ValidationMessage id="email-error" message={fieldErrors.email} /> : null}
       </div>
 
       <div>
@@ -158,10 +159,10 @@ export function RegistrationForm({ onRegistered }: RegistrationFormProps) {
           aria-invalid={Boolean(fieldErrors.password)}
           aria-describedby={fieldErrors.password ? 'password-error' : undefined}
         />
-        {fieldErrors.password ? <p id="password-error">{fieldErrors.password}</p> : null}
+        {fieldErrors.password ? <ValidationMessage id="password-error" message={fieldErrors.password} /> : null}
       </div>
 
-      {formError ? <p role="alert">{formError}</p> : null}
+      {formError ? <ValidationMessage message={formError} /> : null}
 
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? 'Creating account...' : 'Create account'}

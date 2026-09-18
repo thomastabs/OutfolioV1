@@ -38,6 +38,9 @@
   --color-warning-soft: #fef3c7;
   --color-success: #087443;
   --color-focus: var(--color-accent);
+  --focus-outline-color: var(--color-accent);
+  --focus-outline-width: 3px;
+  --focus-outline-offset: 3px;
 
   /* Branded content-state indicators. Each text/background pair is WCAG AA. */
   --color-state-draft-bg: #f3f4f6;
@@ -176,8 +179,8 @@ a[class],
 
 .button:focus-visible {
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .button:active {
@@ -219,8 +222,8 @@ a[class],
 .form-input:focus-visible {
   border-color: var(--color-focus);
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .form-input:active {
@@ -261,8 +264,8 @@ a[class],
 
 .navigation-link:focus-visible {
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .navigation-link:active {
@@ -291,8 +294,8 @@ a[class],
 .project-card:focus-visible,
 .project-card:focus-within {
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .project-card p {
@@ -307,6 +310,7 @@ a[class],
 }
 
 .empty-state {
+  align-items: center;
   background: var(--color-surface-muted);
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-card);
@@ -315,6 +319,25 @@ a[class],
   gap: var(--component-gap);
   padding: var(--space-lg);
   text-align: center;
+}
+
+.empty-state__icon,
+.validation-message__icon {
+  align-items: center;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-bold);
+  height: 1.5rem;
+  justify-content: center;
+  line-height: 1;
+  width: 1.5rem;
+}
+
+.empty-state__icon {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  justify-self: center;
 }
 
 .empty-state p {
@@ -329,10 +352,13 @@ a[class],
 }
 
 .validation-message {
+  align-items: center;
   border-radius: var(--radius-control);
+  display: inline-flex;
   font-family: var(--font-family-sans);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
+  gap: var(--space-xs);
   line-height: var(--line-height-caption);
   margin-bottom: 0;
   padding: var(--space-xs) var(--space-sm);
@@ -343,9 +369,19 @@ a[class],
   color: var(--color-error);
 }
 
+.validation-message--error .validation-message__icon {
+  background: var(--color-error);
+  color: var(--color-surface);
+}
+
 .validation-message--warning {
   background: var(--color-warning-soft);
   color: var(--color-warning);
+}
+
+.validation-message--warning .validation-message__icon {
+  background: var(--color-warning);
+  color: var(--color-surface);
 }
 
 .state-indicator {
@@ -415,8 +451,8 @@ button:hover,
 button:focus-visible,
 a:focus-visible {
   box-shadow: var(--shadow-focus);
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 button:disabled {
@@ -442,4 +478,16 @@ article,
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-card);
   padding: var(--space-lg);
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }

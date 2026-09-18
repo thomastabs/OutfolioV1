@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { ValidationMessage } from '../components/ValidationMessage';
 import { ProjectEditor, type ProjectData } from './ProjectEditor';
 import { ProjectList, type ProjectSummary } from './ProjectList';
 
@@ -92,7 +93,8 @@ export default function ProjectsPage() {
   return (
     <main className="page-shell projects-page">
       <h1>Project management workspace</h1>
-      {workspaceError ? <p role="alert">{workspaceError}</p> : null}
+      {workspaceError ? <ValidationMessage message={workspaceError} /> : null}
+      <h2 id="project-editor-heading" className="visually-hidden">Project editor</h2>
       {editingProject ? (
         <ProjectEditor
           project={editingProject}
@@ -104,6 +106,7 @@ export default function ProjectsPage() {
       ) : (
         <ProjectEditor onProjectCreated={(project) => setProjects((currentProjects) => [project, ...currentProjects])} />
       )}
+      <h2 id="project-list-heading" className="visually-hidden">Project list</h2>
       <ProjectList
         projects={projects}
         status={projectListStatus}

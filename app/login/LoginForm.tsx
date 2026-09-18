@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { ValidationMessage } from '../components/ValidationMessage';
 
 type FormValues = {
   username: string;
@@ -92,7 +93,7 @@ export function LoginForm({ onLoggedIn }: LoginFormProps) {
           aria-invalid={Boolean(fieldErrors.username)}
           aria-describedby={fieldErrors.username ? 'login-username-error' : undefined}
         />
-        {fieldErrors.username ? <p id="login-username-error">{fieldErrors.username}</p> : null}
+        {fieldErrors.username ? <ValidationMessage id="login-username-error" message={fieldErrors.username} /> : null}
       </div>
 
       <div>
@@ -106,10 +107,10 @@ export function LoginForm({ onLoggedIn }: LoginFormProps) {
           aria-invalid={Boolean(fieldErrors.password)}
           aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
         />
-        {fieldErrors.password ? <p id="login-password-error">{fieldErrors.password}</p> : null}
+        {fieldErrors.password ? <ValidationMessage id="login-password-error" message={fieldErrors.password} /> : null}
       </div>
 
-      {formError ? <p role="alert">{formError}</p> : null}
+      {formError ? <ValidationMessage message={formError} /> : null}
 
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? 'Logging in...' : 'Log in'}
