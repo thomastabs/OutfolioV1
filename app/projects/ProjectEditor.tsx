@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { EyeOff, Save, Send } from 'lucide-react';
 import { ValidationMessage } from '../components/ValidationMessage';
+import { Badge } from '@/app/components/ui/badge';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Textarea } from '@/app/components/ui/textarea';
 import type { ProjectSummary } from './ProjectList';
 
 export type ProjectData = ProjectSummary & {
@@ -234,10 +239,10 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   }
 
   return (
-    <form className="responsive-form project-editor-form" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
-      <div>
-        <label htmlFor="project-title">Title</label>
-        <input
+    <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-title">Title</label>
+        <Input
           id="project-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -246,9 +251,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         />
         {fieldErrors.title ? <ValidationMessage id="project-title-error" message={fieldErrors.title} /> : null}
       </div>
-      <div>
-        <label htmlFor="project-summary">Summary</label>
-        <textarea
+      <div className="grid gap-2 md:col-span-2">
+        <label className="text-sm font-semibold" htmlFor="project-summary">Summary</label>
+        <Textarea
           id="project-summary"
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
@@ -257,9 +262,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         />
         {fieldErrors.summary ? <ValidationMessage id="project-summary-error" message={fieldErrors.summary} /> : null}
       </div>
-      <div>
-        <label htmlFor="project-role">Role</label>
-        <input
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-role">Role</label>
+        <Input
           id="project-role"
           value={role}
           onChange={(event) => setRole(event.target.value)}
@@ -268,13 +273,13 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         />
         {fieldErrors.role ? <ValidationMessage id="project-role-error" message={fieldErrors.role} /> : null}
       </div>
-      <div>
-        <label htmlFor="project-type">Project type</label>
-        <input id="project-type" value={projectType} onChange={(event) => setProjectType(event.target.value)} />
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-type">Project type</label>
+        <Input id="project-type" value={projectType} onChange={(event) => setProjectType(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-status">Status</label>
-        <input
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-status">Status</label>
+        <Input
           id="project-status"
           value={status}
           onChange={(event) => setStatus(event.target.value)}
@@ -283,9 +288,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         />
         {fieldErrors.status ? <ValidationMessage id="project-status-error" message={fieldErrors.status} /> : null}
       </div>
-      <div>
-        <label htmlFor="project-tags">Tags</label>
-        <input
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-tags">Tags</label>
+        <Input
           id="project-tags"
           value={tags}
           onChange={(event) => setTags(event.target.value)}
@@ -294,9 +299,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         />
         {fieldErrors.tags ? <ValidationMessage id="project-tags-error" message={fieldErrors.tags} /> : null}
       </div>
-      <div>
-        <label htmlFor="project-cover">Cover image URL</label>
-        <input
+      <div className="grid gap-2 md:col-span-2">
+        <label className="text-sm font-semibold" htmlFor="project-cover">Cover image URL</label>
+        <Input
           id="project-cover"
           value={coverImageUrl}
           onChange={(event) => setCoverImageUrl(event.target.value)}
@@ -307,30 +312,31 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           <ValidationMessage id="project-cover-error" message={fieldErrors.coverImageUrl} />
         ) : null}
       </div>
-      <div>
-        <label htmlFor="project-problem">Problem</label>
-        <textarea id="project-problem" value={problem} onChange={(event) => setProblem(event.target.value)} />
+      <div className="grid gap-2 md:col-span-2 xl:col-span-3">
+        <label className="text-sm font-semibold" htmlFor="project-problem">Problem</label>
+        <Textarea id="project-problem" value={problem} onChange={(event) => setProblem(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-features">Features</label>
-        <textarea id="project-features" value={features} onChange={(event) => setFeatures(event.target.value)} />
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-features">Features</label>
+        <Textarea id="project-features" value={features} onChange={(event) => setFeatures(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-technical-notes">Technical notes</label>
-        <textarea id="project-technical-notes" value={technicalNotes} onChange={(event) => setTechnicalNotes(event.target.value)} />
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-technical-notes">Technical notes</label>
+        <Textarea id="project-technical-notes" value={technicalNotes} onChange={(event) => setTechnicalNotes(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-contribution">Contribution</label>
-        <textarea id="project-contribution" value={contribution} onChange={(event) => setContribution(event.target.value)} />
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-contribution">Contribution</label>
+        <Textarea id="project-contribution" value={contribution} onChange={(event) => setContribution(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-outcome">Outcome</label>
-        <textarea id="project-outcome" value={outcome} onChange={(event) => setOutcome(event.target.value)} />
+      <div className="grid gap-2 md:col-span-2">
+        <label className="text-sm font-semibold" htmlFor="project-outcome">Outcome</label>
+        <Textarea id="project-outcome" value={outcome} onChange={(event) => setOutcome(event.target.value)} />
       </div>
-      <div>
-        <label htmlFor="project-visibility">Visibility</label>
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="project-visibility">Visibility</label>
         <select
           id="project-visibility"
+          className="h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm"
           value={visibility}
           onChange={(event) => setVisibility(event.target.value)}
           aria-invalid={fieldErrors.visibility ? 'true' : undefined}
@@ -345,31 +351,38 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         ) : null}
       </div>
       {project?.publishedAt ? (
-        <div>
-          <span>Published at</span>
-          <p>{project.publishedAt}</p>
+        <div className="grid gap-2">
+          <span className="text-sm font-semibold">Published at</span>
+          <Badge className="w-fit rounded-full" variant="success">{project.publishedAt}</Badge>
         </div>
       ) : null}
-      {message ? (
+      <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
+        {message ? (
         message.includes('could not') || message.includes('Choose') ? (
           <ValidationMessage message={message} />
         ) : (
-          <p role="status" aria-live="polite">{message}</p>
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status" aria-live="polite">{message}</p>
         )
       ) : null}
-      <button type="submit" disabled={isSubmitting}>
+      </div>
+      <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
+      <Button type="submit" disabled={isSubmitting}>
+        <Save className="h-4 w-4" aria-hidden="true" />
         {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save project' : 'Create project')}
-      </button>
+      </Button>
       {isEditMode && visibility === 'draft' ? (
-        <button type="button" onClick={() => handleVisibilityAction('publish')} disabled={visibilityAction !== null}>
+        <Button type="button" onClick={() => handleVisibilityAction('publish')} disabled={visibilityAction !== null}>
+          <Send className="h-4 w-4" aria-hidden="true" />
           {visibilityAction === 'publish' ? 'Publishing...' : 'Publish project'}
-        </button>
+        </Button>
       ) : null}
       {isEditMode && visibility === 'published' ? (
-        <button type="button" onClick={() => handleVisibilityAction('unpublish')} disabled={visibilityAction !== null}>
+        <Button type="button" variant="secondary" onClick={() => handleVisibilityAction('unpublish')} disabled={visibilityAction !== null}>
+          <EyeOff className="h-4 w-4" aria-hidden="true" />
           {visibilityAction === 'unpublish' ? 'Unpublishing...' : 'Unpublish project'}
-        </button>
+        </Button>
       ) : null}
+      </div>
     </form>
   );
 }

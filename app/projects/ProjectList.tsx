@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '../components/Button';
+import { AlertTriangle, Edit3, EyeOff, Send, Trash2 } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
+import { Badge } from '@/app/components/ui/badge';
+import { Button } from '@/app/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 
 export type ProjectSummary = {
   id: string;
@@ -68,17 +71,24 @@ export function ProjectList({
   const [isDeleting, setIsDeleting] = useState(false);
 
   if (status === 'loading') {
-    return <p>Loading projects...</p>;
+    return <p className="rounded-2xl border border-border bg-card p-6 text-sm font-medium text-muted-foreground shadow">Loading projects...</p>;
   }
 
   if (status === 'error') {
-    return <p>Projects could not be loaded.</p>;
+    return (
+      <Card className="rounded-2xl border-destructive/30 shadow">
+        <CardContent className="flex items-center gap-3 p-6 text-destructive">
+          <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          <p>Projects could not be loaded.</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const visibleProjects = projects.filter((project) => !deletedProjectIds.includes(project.id));
 
   if (visibleProjects.length === 0) {
-    return <EmptyState message="No projects yet." />;
+    return <EmptyState message="No projects yet. Create a draft case study to start shaping your portfolio." />;
   }
 
   async function confirmDelete() {
@@ -113,29 +123,36 @@ export function ProjectList({
   }
 
   return (
-    <section className="responsive-section project-list" aria-label="Project list">
-      <ul className="responsive-card-grid project-list-grid">
+    <section className="grid gap-5 rounded-3xl border border-border bg-card p-6 shadow" aria-label="Project list">
+      <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {visibleProjects.map((project) => (
-          <li className="responsive-card" key={project.id}>
-            <h2>{project.title}</h2>
-            <p>{project.summary}</p>
-            <dl className="responsive-definition-grid">
-              <div>
-                <dt>Status</dt>
-                <dd>{project.status}</dd>
-              </div>
-              <div>
-                <dt>Visibility</dt>
-                <dd>
-                  <span className={visibilityIndicatorClass(project.visibility)}>
+          <li key={project.id}>
+            <Card className="h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <CardTitle>{project.title}</CardTitle>
+                  <Badge className={visibilityIndicatorClass(project.visibility)} variant="outline">
                     {visibilityLabel(project.visibility)}
-                  </span>
-                </dd>
-              </div>
-            </dl>
-            <div className="responsive-actions">
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{project.summary}</p>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-medium text-muted-foreground">Status</dt>
+                    <dd>{project.status}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-muted-foreground">Role</dt>
+                    <dd>{project.role}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+              <CardFooter className="gap-2">
               {onEditProject ? (
                 <Button variant="secondary" onClick={() => onEditProject(project)}>
+                  <Edit3 className="h-4 w-4" aria-hidden="true" />
                   Edit {project.title}
                 </Button>
               ) : null}
@@ -147,38 +164,45 @@ export function ProjectList({
                     setProjectToDelete(project);
                   }}
                 >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Delete {project.title}
                 </Button>
               ) : null}
               {onPublishProject && canPublishProject(project) ? (
                 <Button onClick={() => onPublishProject(project.id)}>
+                  <Send className="h-4 w-4" aria-hidden="true" />
                   Publish {project.title}
                 </Button>
               ) : null}
               {onUnpublishProject && isPublishedProject(project) ? (
                 <Button variant="secondary" onClick={() => onUnpublishProject(project.id)}>
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
                   Unpublish {project.title}
                 </Button>
               ) : null}
-            </div>
+              </CardFooter>
+            </Card>
           </li>
         ))}
       </ul>
-      {deleteError ? <p role="alert">{deleteError}</p> : null}
+      {deleteError ? <p className="text-sm font-medium text-destructive" role="alert">{deleteError}</p> : null}
       {projectToDelete ? (
         <div
           aria-labelledby="delete-project-title"
           aria-modal="true"
+          className="grid gap-4 rounded-2xl border border-destructive/30 bg-card p-6 shadow"
           role="dialog"
         >
-          <h2 id="delete-project-title">Delete {projectToDelete.title}</h2>
-          <p>This draft project will be permanently deleted.</p>
-          <Button onClick={confirmDelete} disabled={isDeleting}>
+          <h2 className="text-xl font-bold" id="delete-project-title">Delete {projectToDelete.title}</h2>
+          <p className="text-sm text-muted-foreground">This draft project will be permanently deleted.</p>
+          <div className="flex flex-wrap gap-3">
+          <Button onClick={confirmDelete} disabled={isDeleting} variant="destructive">
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
           <Button variant="secondary" onClick={() => setProjectToDelete(null)} disabled={isDeleting}>
             Cancel
           </Button>
+          </div>
         </div>
       ) : null}
     </section>

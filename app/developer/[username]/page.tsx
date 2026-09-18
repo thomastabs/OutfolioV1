@@ -1,7 +1,13 @@
 'use client';
 
+import Link from 'next/link';
+import { ArrowRight, BadgeCheck, Link as LinkIcon, Shield, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Badge } from '@/app/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { buttonVariants } from '@/app/components/ui/button';
+import { cn } from '@/src/lib/utils';
 
 type PublicProfileResponse = {
   username: string;
@@ -70,21 +76,36 @@ export default function PublicDeveloperProfilePage() {
   }, [username]);
 
   if (state === 'loading') {
-    return <p>Loading profile...</p>;
+    return <p className="p-8 text-sm font-medium text-muted-foreground">Loading profile...</p>;
   }
 
   if (state === 'unavailable') {
     return (
-      <main className="page-shell public-profile-page">
-        <h1>Profile is unavailable.</h1>
+      <main className="min-h-screen bg-background px-6 py-10">
+        <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
+          <CardContent className="grid gap-4 p-8">
+            <UserRound className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+            <h1 className="text-3xl font-bold tracking-normal">Profile is unavailable.</h1>
+            <Link className={cn(buttonVariants({ variant: 'secondary' }), 'mx-auto rounded-xl shadow')} href="/discover">
+              Back to discovery
+            </Link>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
   if (state === 'error' || !data) {
     return (
-      <main className="page-shell public-profile-page">
-        <h1>Public profile could not be loaded.</h1>
+      <main className="min-h-screen bg-background px-6 py-10">
+        <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
+          <CardContent className="grid gap-4 p-8">
+            <h1 className="text-3xl font-bold tracking-normal">Public profile could not be loaded.</h1>
+            <Link className={cn(buttonVariants({ variant: 'secondary' }), 'mx-auto rounded-xl shadow')} href="/discover">
+              Back to discovery
+            </Link>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -98,27 +119,38 @@ export default function PublicDeveloperProfilePage() {
     : 'Private';
 
   return (
-    <main className="page-shell public-profile-page">
-      <section className="responsive-section public-profile-summary" aria-label={`${data.username} public profile`}>
-        <h1>{data.profile.name || data.username}</h1>
-        <dl className="responsive-definition-grid">
-          <div>
-            <dt>Bio</dt>
-            <dd>{data.profile.bio || 'No bio added yet'}</dd>
+    <main className="min-h-screen bg-background px-6 py-10">
+      <section className="mx-auto grid max-w-6xl gap-8">
+      <Card className="rounded-3xl shadow-polish" aria-label={`${data.username} public profile`}>
+        <CardHeader>
+          <Badge className="mb-2 w-fit rounded-full shadow" variant="outline">
+            <UserRound className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+            @{data.username}
+          </Badge>
+          <CardTitle className="text-4xl">{data.profile.name || data.username}</CardTitle>
+          <CardDescription className="max-w-3xl text-base">{data.profile.bio || 'No bio added yet'}</CardDescription>
+        </CardHeader>
+        <CardContent>
+        <dl className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <dt className="text-sm font-medium text-muted-foreground">Experience</dt>
+            <dd className="mt-1 font-semibold">{experienceText}</dd>
           </div>
-          <div>
-            <dt>Experience</dt>
-            <dd>{experienceText}</dd>
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Shield className="h-4 w-4 text-primary" aria-hidden="true" />
+              Visibility
+            </dt>
+            <dd className="mt-1 font-semibold">{visibilityText}</dd>
           </div>
-          <div>
-            <dt>Visibility</dt>
-            <dd>{visibilityText}</dd>
-          </div>
-          <div>
-            <dt>Certifications</dt>
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <BadgeCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+              Certifications
+            </dt>
             <dd>
               {data.profile.certifications.length > 0 ? (
-                <ul>
+                <ul className="mt-2 grid gap-1">
                   {data.profile.certifications.map((certification) => (
                     <li key={certification}>{certification}</li>
                   ))}
@@ -128,11 +160,14 @@ export default function PublicDeveloperProfilePage() {
               )}
             </dd>
           </div>
-          <div>
-            <dt>Links</dt>
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <LinkIcon className="h-4 w-4 text-primary" aria-hidden="true" />
+              Links
+            </dt>
             <dd>
               {data.profile.links.length > 0 ? (
-                <ul>
+                <ul className="mt-2 grid gap-1">
                   {data.profile.links.map((link) => (
                     <li key={link}>
                       <a href={link}>{link}</a>
@@ -145,24 +180,46 @@ export default function PublicDeveloperProfilePage() {
             </dd>
           </div>
         </dl>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="responsive-section" aria-label="Published projects">
-        <h2>Published projects</h2>
+      <section className="grid gap-5" aria-label="Published projects">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Badge className="mb-3 w-fit rounded-full" variant="secondary">Portfolio</Badge>
+            <h2 className="text-2xl font-bold tracking-normal">Published projects</h2>
+          </div>
+          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-primary" href="/discover">
+            Explore more
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
         {data.publishedProjects.length > 0 ? (
-          <ul className="responsive-card-grid">
+          <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {data.publishedProjects.map((project) => (
-              <li className="responsive-card" key={project.id}>
-                <h3>
-                  <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
-                </h3>
-                <p>{project.summary || 'No summary added yet.'}</p>
+              <li key={project.id}>
+                <Card className="h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
+                  <CardHeader>
+                    <CardTitle>
+                      <a href={`/project/${encodeURIComponent(project.slug)}`}>{project.title}</a>
+                    </CardTitle>
+                    <CardDescription>{project.summary || 'No summary added yet.'}</CardDescription>
+                  </CardHeader>
+                </Card>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No published projects yet.</p>
+          <Card className="rounded-2xl border-dashed shadow">
+            <CardContent className="grid gap-4 p-6 text-center">
+              <p className="font-medium">No published projects yet.</p>
+              <Link className={cn(buttonVariants({ variant: 'secondary' }), 'mx-auto rounded-xl shadow')} href="/discover">
+                Browse discovery
+              </Link>
+            </CardContent>
+          </Card>
         )}
+      </section>
       </section>
     </main>
   );

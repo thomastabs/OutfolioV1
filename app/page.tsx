@@ -1,9 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowRight, BriefcaseBusiness, Compass, LogIn, Sparkles, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { PublishedProjectCard } from './components/PublishedProjectCard';
+import { Badge } from '@/app/components/ui/badge';
+import { buttonVariants } from '@/app/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { cn } from '@/src/lib/utils';
 
 type ProjectHighlight = {
   id: string;
@@ -158,9 +162,12 @@ export default function HomePage() {
 
   if (dashboardState.status === 'loading') {
     return (
-      <main className="home-page">
-        <section className="home-hero" aria-busy="true">
-          <p>Loading home dashboard...</p>
+      <main className="min-h-screen bg-background px-6 py-10">
+        <section
+          className="mx-auto flex min-h-[60vh] max-w-6xl items-center justify-center rounded-3xl border border-border bg-card shadow-polish"
+          aria-busy="true"
+        >
+          <p className="text-sm font-medium text-muted-foreground">Loading home dashboard...</p>
         </section>
       </main>
     );
@@ -168,11 +175,12 @@ export default function HomePage() {
 
   if (dashboardState.status === 'error') {
     return (
-      <main className="home-page">
-        <section className="home-hero">
-          <h1>Outfolio</h1>
-          <p>The home dashboard could not be loaded right now.</p>
-          <Link href="/discover" className="home-primary-link">
+      <main className="min-h-screen bg-background px-6 py-10">
+        <section className="mx-auto grid max-w-4xl gap-6 rounded-3xl border border-border bg-card p-8 text-center shadow-polish">
+          <Sparkles className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+          <h1 className="text-4xl font-bold tracking-normal text-foreground">Outfolio</h1>
+          <p className="text-muted-foreground">The home dashboard could not be loaded right now.</p>
+          <Link href="/discover" className={cn(buttonVariants({ size: 'lg' }), 'mx-auto rounded-xl shadow')}>
             Go to discovery
           </Link>
         </section>
@@ -183,47 +191,92 @@ export default function HomePage() {
   const { data } = dashboardState;
 
   return (
-    <main className="home-page">
-      <section className="home-hero">
-        <div>
-          <h1>{data.productName}</h1>
-          <p>{data.valueProposition}</p>
+    <main className="min-h-screen bg-background px-6 py-10">
+      <section className="mx-auto grid max-w-6xl gap-8 rounded-3xl border border-border bg-card p-8 shadow-polish md:grid-cols-[1.2fr_0.8fr] md:p-12">
+        <div className="grid content-center gap-5">
+          <Badge className="w-fit rounded-full shadow" variant="outline">
+            <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+            Portfolio case studies for platform work
+          </Badge>
+          <h1 className="max-w-3xl text-4xl font-bold tracking-normal text-foreground md:text-6xl">{data.productName}</h1>
+          <p className="max-w-2xl text-lg leading-8 text-muted-foreground">{data.valueProposition}</p>
         </div>
 
-        <nav aria-label="Home navigation" className="home-actions">
+        <nav aria-label="Home navigation" className="grid content-center gap-3 rounded-2xl border border-border bg-muted/50 p-5 shadow">
           {data.session.authenticated ? (
             <>
-              <p>Welcome back, {data.session.username}.</p>
-              <Link href="/profile">Edit profile</Link>
-              <Link href="/projects">Manage projects</Link>
-              <Link href="/discover">Discover projects</Link>
+              <p className="text-sm font-medium text-muted-foreground">Welcome back, {data.session.username}.</p>
+              <Link href="/profile" className={cn(buttonVariants(), 'rounded-xl shadow')}>
+                <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
+                Edit profile
+              </Link>
+              <Link href="/projects" className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-xl shadow')}>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                Manage projects
+              </Link>
+              <Link href="/discover" className={cn(buttonVariants({ variant: 'ghost' }), 'rounded-xl')}>
+                <Compass className="h-4 w-4" aria-hidden="true" />
+                Discover projects
+              </Link>
             </>
           ) : (
             <>
-              <Link href="/register">Register</Link>
-              <Link href="/login">Login</Link>
-              <Link href="/discover">Discover projects</Link>
+              <Link href="/register" className={cn(buttonVariants(), 'rounded-xl shadow')}>
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Register
+              </Link>
+              <Link href="/login" className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-xl shadow')}>
+                <LogIn className="h-4 w-4" aria-hidden="true" />
+                Login
+              </Link>
+              <Link href="/discover" className={cn(buttonVariants({ variant: 'ghost' }), 'rounded-xl')}>
+                <Compass className="h-4 w-4" aria-hidden="true" />
+                Discover projects
+              </Link>
             </>
           )}
         </nav>
       </section>
 
-      <section className="home-highlights" aria-labelledby="home-highlights-heading">
-        <h2 id="home-highlights-heading">Published project highlights</h2>
+      <section className="mx-auto mt-12 grid max-w-6xl gap-6" aria-labelledby="home-highlights-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Badge className="mb-3 w-fit rounded-full" variant="secondary">Highlights</Badge>
+            <h2 id="home-highlights-heading" className="text-2xl font-bold tracking-normal text-foreground">
+              Published project highlights
+            </h2>
+          </div>
+          <Link href="/discover" className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+            Browse all projects
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
         {data.publishedProjects.length > 0 ? (
-          <ul aria-label="Published project highlights">
+          <ul className="grid gap-5 md:grid-cols-3" aria-label="Published project highlights">
             {data.publishedProjects.map((project) => (
               <li key={project.id}>
-                <PublishedProjectCard title={project.title} summary={project.summary} />
+                <Card className="h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
+                  <CardHeader>
+                    <CardTitle>{project.title}</CardTitle>
+                    <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
+                  </CardHeader>
+                </Card>
               </li>
             ))}
           </ul>
         ) : (
-          <div>
-            <p>No published projects are available yet.</p>
-            <Link href="/register">Register to add yours</Link>
-            <Link href="/discover">Explore discovery</Link>
-          </div>
+          <Card className="rounded-2xl border-dashed shadow">
+            <CardContent className="grid gap-4 p-6 text-center">
+              <Compass className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
+              <p className="text-muted-foreground">No published projects are available yet.</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <Link href="/register" className={cn(buttonVariants(), 'rounded-xl shadow')}>Register to add yours</Link>
+                <Link href="/discover" className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-xl shadow')}>
+                  Explore discovery
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </section>
     </main>

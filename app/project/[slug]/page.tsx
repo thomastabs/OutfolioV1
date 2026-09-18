@@ -1,7 +1,13 @@
 'use client';
 
+import Link from 'next/link';
+import { ArrowLeft, BadgeCheck, Lock, Tag, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Badge } from '@/app/components/ui/badge';
+import { buttonVariants } from '@/app/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { cn } from '@/src/lib/utils';
 
 type PublicProject = {
   id: string;
@@ -30,10 +36,28 @@ type LoadState = 'loading' | 'ready' | 'access-denied' | 'not-found' | 'error';
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value || 'Not added yet.'}</dd>
+    <div className="rounded-2xl border border-border bg-muted/40 p-4">
+      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-semibold">{value || 'Not added yet.'}</dd>
     </div>
+  );
+}
+
+function ProjectStateCard({ title, message }: { title: string; message: string }) {
+  return (
+    <main className="min-h-screen bg-background px-6 py-10">
+      <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
+        <CardContent className="grid gap-4 p-8">
+          <Lock className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+          <h1 className="text-3xl font-bold tracking-normal">{title}</h1>
+          <p className="text-muted-foreground">{message}</p>
+          <Link className={cn(buttonVariants({ variant: 'secondary' }), 'mx-auto rounded-xl shadow')} href="/discover">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to discovery
+          </Link>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
 
@@ -88,94 +112,95 @@ export default function PublicProjectPage() {
   }, [slug]);
 
   if (state === 'loading') {
-    return <p>Loading project...</p>;
+    return <p className="p-8 text-sm font-medium text-muted-foreground">Loading project...</p>;
   }
 
   if (state === 'access-denied') {
-    return (
-      <main className="page-shell public-project-page">
-        <h1>Access denied</h1>
-        <p>This project is unpublished or private.</p>
-      </main>
-    );
+    return <ProjectStateCard title="Access denied" message="This project is unpublished or private." />;
   }
 
   if (state === 'not-found') {
-    return (
-      <main className="page-shell public-project-page">
-        <h1>Project not found</h1>
-        <p>This project does not exist or is unavailable.</p>
-      </main>
-    );
+    return <ProjectStateCard title="Project not found" message="This project does not exist or is unavailable." />;
   }
 
   if (state === 'error' || !project) {
-    return (
-      <main className="page-shell public-project-page">
-        <h1>Project unavailable</h1>
-        <p>The project could not be loaded.</p>
-      </main>
-    );
+    return <ProjectStateCard title="Project unavailable" message="The project could not be loaded." />;
   }
 
   return (
-    <main className="page-shell public-project-page">
-      <article className="responsive-section public-project-article" aria-label={`${project.title} public project`}>
-        <header>
-          <p>{project.owner.name || project.owner.username}</p>
-          <h1>{project.title}</h1>
-          <p>{project.summary || 'No summary added yet.'}</p>
-        </header>
+    <main className="min-h-screen bg-background px-6 py-10">
+      <article className="mx-auto grid max-w-6xl gap-8" aria-label={`${project.title} public project`}>
+        <Card className="rounded-3xl shadow-polish">
+          <CardHeader>
+            <Badge className="mb-2 w-fit rounded-full shadow" variant="outline">
+              <UserRound className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+              {project.owner.name || project.owner.username}
+            </Badge>
+            <CardTitle className="text-4xl">{project.title}</CardTitle>
+            <CardDescription className="max-w-3xl text-base">{project.summary || 'No summary added yet.'}</CardDescription>
+          </CardHeader>
+        </Card>
 
         {project.coverImageUrl ? (
-          <img src={project.coverImageUrl} alt={`${project.title} cover image`} />
+          <img className="rounded-3xl border border-border shadow-polish" src={project.coverImageUrl} alt={`${project.title} cover image`} />
         ) : (
-          <p>No cover image added yet.</p>
+          <Card className="rounded-2xl border-dashed shadow">
+            <CardContent className="p-6 text-center text-muted-foreground">No cover image added yet.</CardContent>
+          </Card>
         )}
 
-        <dl className="responsive-definition-grid">
+        <dl className="grid gap-4 md:grid-cols-3">
           <Field label="Project type" value={project.projectType} />
           <Field label="Role" value={project.role} />
           <Field label="Status" value={project.status} />
         </dl>
 
-        <section aria-label="Project tags">
-          <h2>Tags</h2>
+        <Card className="rounded-2xl shadow" aria-label="Project tags">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-primary" aria-hidden="true" />
+              Tags
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
           {project.tags.length > 0 ? (
-            <ul className="responsive-tag-list">
+            <ul className="flex flex-wrap gap-2">
               {project.tags.map((tag) => (
-                <li key={tag}>{tag}</li>
+                <li key={tag}>
+                  <Badge className="rounded-full" variant="secondary">{tag}</Badge>
+                </li>
               ))}
             </ul>
           ) : (
-            <p>No tags added yet.</p>
+            <p className="text-muted-foreground">No tags added yet.</p>
           )}
-        </section>
+          </CardContent>
+        </Card>
 
-        <section>
-          <h2>Problem</h2>
-          <p>{project.problem || 'Not added yet.'}</p>
-        </section>
+        {[
+          ['Problem', project.problem],
+          ['Features', project.features],
+          ['Technical notes', project.technicalNotes],
+          ['Contribution', project.contribution],
+          ['Outcome', project.outcome],
+        ].map(([label, value]) => (
+          <Card className="rounded-2xl shadow" key={label}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BadgeCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                {label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-muted-foreground">{value || 'Not added yet.'}</p>
+            </CardContent>
+          </Card>
+        ))}
 
-        <section>
-          <h2>Features</h2>
-          <p>{project.features || 'Not added yet.'}</p>
-        </section>
-
-        <section>
-          <h2>Technical notes</h2>
-          <p>{project.technicalNotes || 'Not added yet.'}</p>
-        </section>
-
-        <section>
-          <h2>Contribution</h2>
-          <p>{project.contribution || 'Not added yet.'}</p>
-        </section>
-
-        <section>
-          <h2>Outcome</h2>
-          <p>{project.outcome || 'Not added yet.'}</p>
-        </section>
+        <Link className={cn(buttonVariants({ variant: 'secondary' }), 'w-fit rounded-xl shadow')} href="/discover">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to discovery
+        </Link>
       </article>
     </main>
   );

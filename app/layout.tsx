@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Providers } from './providers';
+import './styles/globals.css';
 import './styles/typography-spacing.css';
 import './styles/colors-shapes.css';
 import './styles/forms.css';

@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Save, Shield } from 'lucide-react';
 import { ValidationMessage } from '../components/ValidationMessage';
+import { Badge } from '@/app/components/ui/badge';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Textarea } from '@/app/components/ui/textarea';
 
 export type ProfileData = {
   userId: string;
@@ -134,10 +139,10 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
   }
 
   return (
-    <form className="responsive-form profile-editor-form" aria-label="Profile editor" onSubmit={handleSubmit} noValidate>
-      <div>
-        <label htmlFor="profile-name">Name</label>
-        <input
+    <form className="grid gap-5 md:grid-cols-2" aria-label="Profile editor" onSubmit={handleSubmit} noValidate>
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="profile-name">Name</label>
+        <Input
           id="profile-name"
           name="name"
           value={name}
@@ -148,14 +153,14 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         {fieldErrors.name ? <ValidationMessage id="profile-name-error" message={fieldErrors.name} /> : null}
       </div>
 
-      <div>
-        <label htmlFor="profile-bio">Bio</label>
-        <textarea id="profile-bio" name="bio" value={bio} onChange={(event) => setBio(event.target.value)} />
+      <div className="grid gap-2 md:col-span-2">
+        <label className="text-sm font-semibold" htmlFor="profile-bio">Bio</label>
+        <Textarea id="profile-bio" name="bio" value={bio} onChange={(event) => setBio(event.target.value)} />
       </div>
 
-      <div>
-        <label htmlFor="profile-experience">Years of experience</label>
-        <input
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="profile-experience">Years of experience</label>
+        <Input
           id="profile-experience"
           name="experienceYears"
           type="number"
@@ -170,9 +175,9 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         ) : null}
       </div>
 
-      <div>
-        <label htmlFor="profile-certifications">Certifications</label>
-        <textarea
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="profile-certifications">Certifications</label>
+        <Textarea
           id="profile-certifications"
           name="certifications"
           value={certifications}
@@ -185,9 +190,9 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         ) : null}
       </div>
 
-      <div>
-        <label htmlFor="profile-links">Public links</label>
-        <textarea
+      <div className="grid gap-2">
+        <label className="text-sm font-semibold" htmlFor="profile-links">Public links</label>
+        <Textarea
           id="profile-links"
           name="links"
           value={links}
@@ -198,10 +203,14 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         {fieldErrors.links ? <ValidationMessage id="profile-links-error" message={fieldErrors.links} /> : null}
       </div>
 
-      <div>
-        <label htmlFor="profile-visibility">Visibility</label>
+      <div className="grid gap-2">
+        <label className="flex items-center gap-2 text-sm font-semibold" htmlFor="profile-visibility">
+          <Shield className="h-4 w-4 text-primary" aria-hidden="true" />
+          Visibility
+        </label>
         <select
           id="profile-visibility"
+          className="h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm"
           name="visibility"
           value={visibility}
           onChange={(event) => setVisibility(event.target.value)}
@@ -217,11 +226,19 @@ export function ProfileEditor({ profile, onProfileSaved }: ProfileEditorProps) {
         ) : null}
       </div>
 
-      {generalMessage ? <p role="status" aria-live="polite">{generalMessage}</p> : null}
+      {generalMessage ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 md:col-span-2" role="status" aria-live="polite">
+          {generalMessage}
+        </p>
+      ) : null}
 
-      <button type="submit" disabled={isSaving}>
+      <div className="flex flex-wrap items-center gap-3 text-muted-foreground md:col-span-2">
+      <Button type="submit" disabled={isSaving}>
+        <Save className="h-4 w-4" aria-hidden="true" />
         {isSaving ? 'Saving...' : 'Save profile'}
-      </button>
+      </Button>
+      <Badge className="rounded-full" variant="outline">Current: {visibility}</Badge>
+      </div>
     </form>
   );
 }

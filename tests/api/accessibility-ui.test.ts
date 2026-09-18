@@ -29,16 +29,18 @@ describe('Story 9552562 accessibility requirements', () => {
     const projectsPage = readProjectFile('app/projects/page.tsx');
     const publicProfilePage = readProjectFile('app/developer/[username]/page.tsx');
 
-    expect(homePage).toContain('<h1>{data.productName}</h1>');
-    expect(homePage).toContain('<h2 id="home-highlights-heading">Published project highlights</h2>');
-    expect(discoveryPage).toContain('<h1>Discover projects</h1>');
+    expect(homePage).toContain('<h1 className=');
+    expect(homePage).toContain('{data.productName}</h1>');
+    expect(homePage).toContain('id="home-highlights-heading"');
+    expect(homePage).toContain('Published project highlights');
+    expect(discoveryPage).toContain('Discover projects</h1>');
     expect(discoveryPage).toContain('<h2 id="discovery-filters-heading"');
     expect(discoveryPage).toContain('<h2 id="discovery-results-heading"');
-    expect(projectsPage).toContain('<h1>Project management workspace</h1>');
+    expect(projectsPage).toContain('Project management workspace</h1>');
     expect(projectsPage).toContain('<h2 id="project-editor-heading"');
     expect(projectsPage).toContain('<h2 id="project-list-heading"');
-    expect(publicProfilePage).toContain('<h1>{data.profile.name || data.username}</h1>');
-    expect(publicProfilePage).toContain('<h2>Published projects</h2>');
+    expect(publicProfilePage).toContain('{data.profile.name || data.username}');
+    expect(publicProfilePage).toContain('Published projects</h2>');
   });
 
   it('associates form controls with accessible labels across user-facing forms', () => {

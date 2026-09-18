@@ -21,7 +21,7 @@ Traceability: this README summarizes implemented work through:
 - Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
   `9552555`, `9552556`
 - User Interface and Visual Design: Stories `9552558`, `9552559`, `9552560`,
-  `9552561`
+  `9552561`, `9552562`, `9556465`
 
 ## Current Scope
 
@@ -47,17 +47,24 @@ The implemented application covers:
   project cards, empty states, and validation feedback messages.
 - Branded color palette, accessible contrast checks, and visual state
   indicators for draft, published, private, unlisted, and unpublished content.
+- Accessibility enhancements for keyboard focus, semantic page structure,
+  labelled form controls, live validation feedback, and clear empty/error
+  states.
+- Tailwind CSS, shadcn-style UI primitives, and lucide-react icons powering a
+  polished redesign of `/`, `/projects`, `/profile`, `/discover`, public
+  developer profiles, and public project pages.
 
 The remaining planned scope before final end-to-end validation is:
 
-- Remaining User Interface and Visual Design stories after branding and color
-  scheme application.
+- Story `9543691` End-to-End Product Flow Validation.
 
 ## Tech Stack
 
 - Runtime: Node.js `20.x`
 - Package manager: `pnpm`
 - Frontend: Next.js 14 app directory with React and TypeScript
+- Styling/UI: Tailwind CSS, shadcn-style local primitives, lucide-react icons,
+  and legacy CSS tokens retained for compatibility during the transition
 - API layer: Express-style route handlers under `src/api/v1`, bridged for
   Vercel through `app/api/v1/[...path]/route.ts`
 - ORM: Prisma
@@ -86,6 +93,10 @@ The remaining planned scope before final end-to-end validation is:
 - `app/api/v1/[...path]/route.ts` - Next.js App Router API bridge for
   deployed `/api/v1` routes
 - `app/styles` - global visual style guide CSS variables and form styles
+- `app/components/ui` - shadcn-style Button, Card, Input, Textarea, and Badge
+  primitives used by the polished UI layer
+- `tailwind.config.js` and `postcss.config.js` - Tailwind CSS integration for
+  Next.js app directory mode
 - `prisma/schema.prisma` - User, Profile, and Project data model
 - `demonstration-log.local.md` - local, gitignored thesis demonstration log
 
@@ -197,6 +208,7 @@ pnpm test -- app/page.tsx.test.tsx
 pnpm test -- --testPathPattern=app/providers.tsx.test.tsx
 pnpm test -- tests/api/responsive-layout.test.ts
 pnpm test -- tests/api/themed-components.test.ts app/components/Button.test.tsx app/components/FormInput.test.tsx app/components/NavigationLink.test.tsx app/components/ProjectCard.test.tsx app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx
+pnpm test -- tests/api/ui-polish.test.ts app/components/ui/ui-polish.test.tsx
 ```
 
 Schema/model checks:

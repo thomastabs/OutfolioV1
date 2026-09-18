@@ -27,19 +27,23 @@ describe('Responsive layout implementation', () => {
   });
 
   it('adds responsive hooks to profile and project management pages', () => {
-    expect(readAppFile('app/profile/page.tsx')).toContain('className="page-shell profile-page"');
-    expect(readAppFile('app/profile/ProfileEditor.tsx')).toContain('className="responsive-form profile-editor-form"');
-    expect(readAppFile('app/projects/page.tsx')).toContain('className="page-shell projects-page"');
+    expect(readAppFile('app/profile/page.tsx')).toContain('min-h-screen bg-background');
+    expect(readAppFile('app/profile/page.tsx')).toContain('max-w-6xl');
+    expect(readAppFile('app/profile/ProfileEditor.tsx')).toContain('md:grid-cols-2');
+    expect(readAppFile('app/projects/page.tsx')).toContain('max-w-7xl');
+    expect(readAppFile('app/projects/page.tsx')).toContain('aria-live="polite"');
     expect(readAppFile('app/projects/[id]/page.tsx')).toContain('className="page-shell project-edit-page"');
-    expect(readAppFile('app/projects/ProjectEditor.tsx')).toContain('className="responsive-form project-editor-form"');
-    expect(readAppFile('app/projects/ProjectList.tsx')).toContain('className="responsive-card-grid project-list-grid"');
+    expect(readAppFile('app/projects/ProjectEditor.tsx')).toContain('md:grid-cols-2');
+    expect(readAppFile('app/projects/ProjectList.tsx')).toContain('xl:grid-cols-3');
   });
 
   it('adds responsive hooks to public profile, public project, and discovery pages', () => {
-    expect(readAppFile('app/developer/[username]/page.tsx')).toContain('className="page-shell public-profile-page"');
-    expect(readAppFile('app/project/[slug]/page.tsx')).toContain('className="page-shell public-project-page"');
-    expect(readAppFile('app/discover/page.tsx')).toContain('className="page-shell discovery-page"');
-    expect(readAppFile('app/discover/page.tsx')).toContain('className="responsive-controls discovery-controls"');
-    expect(readAppFile('app/discover/page.tsx')).toContain('className="responsive-card-grid discovery-results"');
+    expect(readAppFile('app/developer/[username]/page.tsx')).toContain('max-w-6xl');
+    expect(readAppFile('app/developer/[username]/page.tsx')).toContain('xl:grid-cols-3');
+    expect(readAppFile('app/project/[slug]/page.tsx')).toContain('max-w-6xl');
+    expect(readAppFile('app/project/[slug]/page.tsx')).toContain('md:grid-cols-3');
+    expect(readAppFile('app/discover/page.tsx')).toContain('max-w-6xl');
+    expect(readAppFile('app/discover/page.tsx')).toContain('md:grid-cols-2');
+    expect(readAppFile('app/discover/page.tsx')).toContain('xl:grid-cols-3');
   });
 });
