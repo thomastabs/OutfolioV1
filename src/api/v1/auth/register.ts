@@ -20,6 +20,19 @@ type RegisterDependencies = {
       findFirst(args: { where: { OR: Array<{ username: string } | { email: string }> } }): Promise<unknown>;
       create(args: { data: UserRecord }): Promise<UserRecord>;
     };
+    profile?: {
+      create(args: {
+        data: {
+          userId: string;
+          name: string;
+          bio: string;
+          experienceYears: number;
+          certifications: string[];
+          links: string[];
+          visibility: 'PRIVATE';
+        };
+      }): Promise<unknown>;
+    };
   };
   supabase: {
     auth: {
@@ -117,6 +130,17 @@ export function createRegisterHandler(deps: RegisterDependencies) {
           username: values.username,
           email: values.email,
           createdAt,
+        },
+      });
+      await deps.prisma.profile?.create({
+        data: {
+          userId: user.id,
+          name: values.name,
+          bio: '',
+          experienceYears: 0,
+          certifications: [],
+          links: [],
+          visibility: 'PRIVATE',
         },
       });
       const session = await deps.establishSession(user, res);

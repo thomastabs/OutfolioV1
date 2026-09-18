@@ -30,6 +30,17 @@ describe('POST /api/v1/auth/register', () => {
           }),
         ),
       },
+      profile: {
+        create: jest.fn().mockResolvedValue({
+          userId: 'supabase-user-1',
+          name: validBody.name,
+          bio: '',
+          experienceYears: 0,
+          certifications: [],
+          links: [],
+          visibility: 'PRIVATE',
+        }),
+      },
     };
     const supabase = {
       auth: {
@@ -76,6 +87,17 @@ describe('POST /api/v1/auth/register', () => {
         username: validBody.username,
         email: validBody.email,
         createdAt: expect.any(Date),
+      },
+    });
+    expect(deps.prisma.profile.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'supabase-user-1',
+        name: validBody.name,
+        bio: '',
+        experienceYears: 0,
+        certifications: [],
+        links: [],
+        visibility: 'PRIVATE',
       },
     });
     expect(deps.establishSession).toHaveBeenCalledWith(
