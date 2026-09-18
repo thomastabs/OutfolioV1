@@ -36,11 +36,14 @@ type RegisterDependencies = {
   };
   supabase: {
     auth: {
-      signUp(args: {
-        email: string;
-        password: string;
-        options: { data: { name: string; username: string } };
-      }): Promise<{ data: { user: { id: string; email?: string | null } | null }; error: unknown }>;
+      admin: {
+        createUser(args: {
+          email: string;
+          password: string;
+          email_confirm: true;
+          user_metadata: { name: string; username: string };
+        }): Promise<{ data: { user: { id: string; email?: string | null } | null }; error: unknown }>;
+      };
     };
   };
   establishSession(user: UserRecord, res: Response): Promise<{ expiresAt: string }>;
@@ -105,14 +108,13 @@ export function createRegisterHandler(deps: RegisterDependencies) {
         });
       }
 
-      const authResult = await deps.supabase.auth.signUp({
+      const authResult = await deps.supabase.auth.admin.createUser({
         email: values.email,
         password: values.password,
-        options: {
-          data: {
-            name: values.name,
-            username: values.username,
-          },
+        email_confirm: true,
+        user_metadata: {
+          name: values.name,
+          username: values.username,
         },
       });
 

@@ -175,10 +175,12 @@ function createFlowHarness() {
     prisma,
     supabase: {
       auth: {
-        signUp: jest.fn(async ({ email }) => ({
-          data: { user: { id: 'user-1', email } },
-          error: null,
-        })),
+        admin: {
+          createUser: jest.fn(async ({ email }) => ({
+            data: { user: { id: 'user-1', email } },
+            error: null,
+          })),
+        },
         signInWithPassword: jest.fn(async () => ({
           data: { user: { id: 'user-1', email: 'ada@example.com' } },
           error: null,

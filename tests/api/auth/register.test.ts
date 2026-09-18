@@ -44,10 +44,12 @@ describe('POST /api/v1/auth/register', () => {
     };
     const supabase = {
       auth: {
-        signUp: jest.fn().mockResolvedValue({
-          data: { user: { id: 'supabase-user-1', email: validBody.email } },
-          error: null,
-        }),
+        admin: {
+          createUser: jest.fn().mockResolvedValue({
+            data: { user: { id: 'supabase-user-1', email: validBody.email } },
+            error: null,
+          }),
+        },
       },
     };
     const establishSession = jest.fn().mockResolvedValue({
@@ -71,14 +73,13 @@ describe('POST /api/v1/auth/register', () => {
         OR: [{ username: validBody.username }, { email: validBody.email }],
       },
     });
-    expect(deps.supabase.auth.signUp).toHaveBeenCalledWith({
+    expect(deps.supabase.auth.admin.createUser).toHaveBeenCalledWith({
       email: validBody.email,
       password: validBody.password,
-      options: {
-        data: {
-          name: validBody.name,
-          username: validBody.username,
-        },
+      email_confirm: true,
+      user_metadata: {
+        name: validBody.name,
+        username: validBody.username,
       },
     });
     expect(deps.prisma.user.create).toHaveBeenCalledWith({
@@ -133,14 +134,13 @@ describe('POST /api/v1/auth/register', () => {
         OR: [{ username: 'ada_lovelace' }, { email: 'ada@example.com' }],
       },
     });
-    expect(deps.supabase.auth.signUp).toHaveBeenCalledWith({
+    expect(deps.supabase.auth.admin.createUser).toHaveBeenCalledWith({
       email: 'ada@example.com',
       password: validBody.password,
-      options: {
-        data: {
-          name: validBody.name,
-          username: 'ada_lovelace',
-        },
+      email_confirm: true,
+      user_metadata: {
+        name: validBody.name,
+        username: 'ada_lovelace',
       },
     });
     expect(deps.prisma.user.create).toHaveBeenCalledWith({
@@ -184,7 +184,7 @@ describe('POST /api/v1/auth/register', () => {
         OR: [{ username: 'ada' }, { email: validBody.email }],
       },
     });
-    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.supabase.auth.admin.createUser).not.toHaveBeenCalled();
     expect(deps.prisma.user.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
@@ -205,7 +205,7 @@ describe('POST /api/v1/auth/register', () => {
 
     await handler({ body: validBody } as never, res as never);
 
-    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.supabase.auth.admin.createUser).not.toHaveBeenCalled();
     expect(deps.prisma.user.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
@@ -229,7 +229,7 @@ describe('POST /api/v1/auth/register', () => {
       res as never,
     );
 
-    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.supabase.auth.admin.createUser).not.toHaveBeenCalled();
     expect(deps.prisma.user.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
@@ -258,7 +258,7 @@ describe('POST /api/v1/auth/register', () => {
       res as never,
     );
 
-    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.supabase.auth.admin.createUser).not.toHaveBeenCalled();
     expect(deps.prisma.user.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
