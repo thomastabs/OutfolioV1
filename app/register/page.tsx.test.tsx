@@ -14,7 +14,7 @@ jest.mock('../session-context', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, back: jest.fn() }),
 }));
 
 describe('RegisterPage redirect behavior', () => {

@@ -5,6 +5,7 @@ let routeParams = { slug: 'portfolio-builder' };
 
 jest.mock('next/navigation', () => ({
   useParams: () => routeParams,
+  useRouter: () => ({ back: jest.fn() }),
 }));
 
 const projectResponse = {

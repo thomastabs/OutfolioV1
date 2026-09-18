@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, BadgeCheck, Lock, Tag, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { BackButton } from '@/app/components/ui/back-button';
 import { Badge } from '@/app/components/ui/badge';
 import { buttonVariants } from '@/app/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -46,6 +47,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function ProjectStateCard({ title, message }: { title: string; message: string }) {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
+      <BackButton className="mx-auto mb-6" />
       <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
         <CardContent className="grid gap-4 p-8">
           <Lock className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
@@ -130,6 +132,7 @@ export default function PublicProjectPage() {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
       <article className="mx-auto grid max-w-6xl gap-8" aria-label={`${project.title} public project`}>
+        <BackButton />
         <Card className="rounded-3xl shadow-polish">
           <CardHeader>
             <Badge className="mb-2 w-fit rounded-full shadow" variant="outline">

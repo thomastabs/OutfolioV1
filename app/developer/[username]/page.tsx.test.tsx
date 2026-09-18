@@ -5,6 +5,7 @@ let routeParams = { username: 'ada' };
 
 jest.mock('next/navigation', () => ({
   useParams: () => routeParams,
+  useRouter: () => ({ back: jest.fn() }),
 }));
 
 describe('PublicDeveloperProfilePage', () => {

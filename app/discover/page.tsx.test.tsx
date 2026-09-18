@@ -3,10 +3,11 @@ import userEvent from '@testing-library/user-event';
 import DiscoveryPage from './page';
 
 const replace = jest.fn();
+const back = jest.fn();
 let searchParams = new URLSearchParams();
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, back }),
   useSearchParams: () => searchParams,
 }));
 

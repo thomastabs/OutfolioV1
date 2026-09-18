@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Compass, Filter, Search } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { BackButton } from '@/app/components/ui/back-button';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
@@ -87,6 +88,7 @@ function DiscoveryContent() {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
       <section className="mx-auto grid max-w-6xl gap-8">
+        <BackButton />
         <header className="rounded-3xl border border-border bg-card p-8 shadow-polish">
           <Badge className="mb-4 w-fit rounded-full shadow" variant="outline">
             <Compass className="mr-2 h-3.5 w-3.5" aria-hidden="true" />

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { FolderKanban, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '../session-context';
+import { BackButton } from '@/app/components/ui/back-button';
 import { ValidationMessage } from '../components/ValidationMessage';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -96,6 +97,7 @@ export default function ProjectsPage() {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
       <section className="mx-auto grid max-w-7xl gap-8">
+        <BackButton />
         <header className="rounded-3xl border border-border bg-card p-8 shadow-polish">
           <Badge className="mb-4 w-fit rounded-full shadow" variant="outline">
             <FolderKanban className="mr-2 h-3.5 w-3.5" aria-hidden="true" />

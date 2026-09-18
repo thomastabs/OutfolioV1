@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '../../session-context';
+import { BackButton } from '@/app/components/ui/back-button';
 import { ProjectEditor, type ProjectData } from '../ProjectEditor';
 
 type ProjectEditPageProps = {
@@ -78,15 +79,26 @@ export default function ProjectEditPage({ params }: ProjectEditPageProps) {
   }
 
   if (loadState === 'unavailable') {
-    return <p>Project is unavailable.</p>;
+    return (
+      <main className="page-shell project-edit-page">
+        <BackButton />
+        <p>Project is unavailable.</p>
+      </main>
+    );
   }
 
   if (loadState === 'error' || !project) {
-    return <p>Project could not be loaded.</p>;
+    return (
+      <main className="page-shell project-edit-page">
+        <BackButton />
+        <p>Project could not be loaded.</p>
+      </main>
+    );
   }
 
   return (
     <main className="page-shell project-edit-page">
+      <BackButton />
       <h1>Edit project</h1>
       <ProjectEditor
         project={project}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Link as LinkIcon, Shield, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { BackButton } from '@/app/components/ui/back-button';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { buttonVariants } from '@/app/components/ui/button';
@@ -82,6 +83,7 @@ export default function PublicDeveloperProfilePage() {
   if (state === 'unavailable') {
     return (
       <main className="min-h-screen bg-background px-6 py-10">
+        <BackButton className="mx-auto mb-6" />
         <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
           <CardContent className="grid gap-4 p-8">
             <UserRound className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
@@ -98,6 +100,7 @@ export default function PublicDeveloperProfilePage() {
   if (state === 'error' || !data) {
     return (
       <main className="min-h-screen bg-background px-6 py-10">
+        <BackButton className="mx-auto mb-6" />
         <Card className="mx-auto max-w-3xl rounded-3xl text-center shadow-polish">
           <CardContent className="grid gap-4 p-8">
             <h1 className="text-3xl font-bold tracking-normal">Public profile could not be loaded.</h1>
@@ -121,6 +124,7 @@ export default function PublicDeveloperProfilePage() {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
       <section className="mx-auto grid max-w-6xl gap-8">
+      <BackButton />
       <Card className="rounded-3xl shadow-polish" aria-label={`${data.username} public profile`}>
         <CardHeader>
           <Badge className="mb-2 w-fit rounded-full shadow" variant="outline">

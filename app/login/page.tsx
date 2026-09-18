@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/app/components/ui/back-button';
 import { useSession } from '../session-context';
 import { LoginForm } from './LoginForm';
 
@@ -26,6 +27,7 @@ export default function LoginPage() {
 
   return (
     <main className="page-shell auth-page">
+      <BackButton />
       <h1>Log in to Outfolio</h1>
       <LoginForm onLoggedIn={handleLoggedIn} />
     </main>
