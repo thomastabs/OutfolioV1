@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { ArrowRight, BriefcaseBusiness, Compass, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Badge } from '@/app/components/ui/badge';
@@ -117,14 +116,17 @@ async function loadCurrentSession(): Promise<DashboardSession> {
 }
 
 export default function HomePage() {
-  const router = useRouter();
   const [dashboardState, setDashboardState] = useState<DashboardState>({ status: 'loading' });
 
   async function handleLogout() {
     try {
       await fetch('/api/v1/auth/logout', { method: 'POST' });
     } finally {
-      router.replace('/login');
+      setDashboardState((current) =>
+        current.status === 'ready'
+          ? { status: 'ready', data: { ...current.data, session: { authenticated: false } } }
+          : current,
+      );
     }
   }
 

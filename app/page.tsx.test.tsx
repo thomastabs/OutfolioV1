@@ -2,12 +2,6 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomePage from './page';
 
-const replace = jest.fn();
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace }),
-}));
-
 const dashboardResponse = {
   productName: 'Outfolio',
   valueProposition: 'Create a public developer portfolio with polished project case studies.',
@@ -80,7 +74,6 @@ describe('HomePage', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     global.fetch = jest.fn();
-    replace.mockClear();
   });
 
   it('loads dashboard data and displays product identity and visitor navigation', async () => {
@@ -197,7 +190,7 @@ describe('HomePage', () => {
     await expect(user.click(projectsLink)).resolves.toBeUndefined();
   });
 
-  it('logs out an authenticated user and redirects to login', async () => {
+  it('logs out an authenticated user and stays on the home dashboard as a visitor', async () => {
     const user = userEvent.setup();
     mockHomeRequests({
       sessionStatus: 200,
@@ -210,7 +203,11 @@ describe('HomePage', () => {
     await user.click(logoutButton);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/logout', { method: 'POST' }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+    expect(await screen.findByRole('link', { name: 'Register' })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login');
+    expect(screen.queryByText('Welcome back, ada.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Outfolio' })).toBeInTheDocument();
   });
 
   it('shows an "Add your project" link instead of registration when an authenticated user has no published highlights', async () => {
