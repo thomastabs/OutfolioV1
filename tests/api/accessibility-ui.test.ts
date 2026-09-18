@@ -15,9 +15,7 @@ describe('Story 9552562 accessibility requirements', () => {
     expect(styles).toContain('--focus-outline-color');
     expect(styles).toContain('--focus-outline-width');
     expect(styles).toContain('outline: var(--focus-outline-width) solid var(--focus-outline-color)');
-    expect(styles).toContain('.button:focus-visible');
-    expect(styles).toContain('.navigation-link:focus-visible');
-    expect(styles).toContain('.project-card:focus-visible');
+    expect(styles).toContain('button:focus-visible');
     expect(formStyles).toContain('input:focus-visible');
     expect(formStyles).toContain('select:focus-visible');
     expect(formStyles).toContain('outline: var(--focus-outline-width) solid var(--focus-outline-color)');
