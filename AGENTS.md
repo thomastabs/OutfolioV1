@@ -42,13 +42,17 @@ architecture notes, the problem it solved and the outcome, independently of
 whatever platform the underlying project was built in or whether that
 platform still exists.
 
-## Scope: 6 epics, ~18 stories, nothing more
+## Scope: 8 epics, nothing more
 
-This is deliberately small. It exists to exercise the framework properly,
-not to become the original larger product vision. Do not propose expanding
-scope, adding epics, or gold-plating a story beyond what it asks for — if
-something looks genuinely missing, say so and let the human decide whether
-it becomes a new story, rather than building it unasked.
+Originally scoped as 6 epics / ~18 stories to stay deliberately small. Two
+finishing epics (7 and 8 below) were added on 2026-09-16 by explicit human
+decision, logged in `demonstration-log.local.md` ("Planned Epics Decision
+and Progress Logged") — not something Codex proposed unasked. The
+"deliberately small" intent still applies to the total: do not propose
+expanding scope further, adding another epic, or gold-plating a story
+beyond what it asks for — if something looks genuinely missing, say so and
+let the human decide whether it becomes a new story, rather than building
+it unasked.
 
 1. **Authentication & Session** — Register account; Log in; Maintain
    authenticated session; Redirect/protect authenticated pages.
@@ -64,6 +68,13 @@ it becomes a new story, rather than building it unasked.
 6. **Quality, Deployment & Demo Readiness** — Backend tests for
    auth/profile/project visibility; frontend tests for key forms and public
    pages; deployment configuration; validate the production demo flow.
+7. **Home Dashboard** (added 2026-09-16) — Root `/` route as a real
+   dashboard rather than a temporary redirect; auth-aware dashboard actions;
+   published project highlights; empty states; navigation into existing
+   flows.
+8. **User Interface and Visual Design** (added 2026-09-16) — Visual style
+   guide; responsive layouts; themed UI components; branding/color scheme;
+   UI accessibility enhancements.
 
 Target: fully implemented, tested and deployed by end of September 2026.
 
