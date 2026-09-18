@@ -2,6 +2,12 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomePage from './page';
 
+const replace = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+}));
+
 const dashboardResponse = {
   productName: 'Outfolio',
   valueProposition: 'Create a public developer portfolio with polished project case studies.',
@@ -58,6 +64,14 @@ function mockHomeRequests(options: {
       } as Response);
     }
 
+    if (url === '/api/v1/auth/logout') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      } as Response);
+    }
+
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
 }
@@ -66,6 +80,7 @@ describe('HomePage', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     global.fetch = jest.fn();
+    replace.mockClear();
   });
 
   it('loads dashboard data and displays product identity and visitor navigation', async () => {
@@ -180,6 +195,40 @@ describe('HomePage', () => {
 
     await expect(user.click(profileLink)).resolves.toBeUndefined();
     await expect(user.click(projectsLink)).resolves.toBeUndefined();
+  });
+
+  it('logs out an authenticated user and redirects to login', async () => {
+    const user = userEvent.setup();
+    mockHomeRequests({
+      sessionStatus: 200,
+      session: authenticatedSessionResponse,
+    });
+
+    render(<HomePage />);
+
+    const logoutButton = await screen.findByRole('button', { name: 'Log out' });
+    await user.click(logoutButton);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/logout', { method: 'POST' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+  });
+
+  it('shows an "Add your project" link instead of registration when an authenticated user has no published highlights', async () => {
+    mockHomeRequests({
+      sessionStatus: 200,
+      session: authenticatedSessionResponse,
+      dashboard: {
+        ...dashboardResponse,
+        session: { authenticated: true },
+        publishedProjects: [],
+      },
+    });
+
+    render(<HomePage />);
+
+    expect(await screen.findByText('No published projects are available yet.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add your project' })).toHaveAttribute('href', '/projects');
+    expect(screen.queryByRole('link', { name: 'Register to add yours' })).not.toBeInTheDocument();
   });
 
   it('handles load errors without showing a 404 or missing page message', async () => {

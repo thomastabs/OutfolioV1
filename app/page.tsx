@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BriefcaseBusiness, Compass, LogIn, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Compass, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Badge } from '@/app/components/ui/badge';
@@ -116,7 +117,16 @@ async function loadCurrentSession(): Promise<DashboardSession> {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [dashboardState, setDashboardState] = useState<DashboardState>({ status: 'loading' });
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST' });
+    } finally {
+      router.replace('/login');
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -218,6 +228,14 @@ export default function HomePage() {
                 <Compass className="h-4 w-4" aria-hidden="true" />
                 Discover projects
               </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={cn(buttonVariants({ variant: 'ghost' }), 'rounded-xl')}
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Log out
+              </button>
             </>
           ) : (
             <>
@@ -270,7 +288,11 @@ export default function HomePage() {
               <Compass className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
               <p className="text-muted-foreground">No published projects are available yet.</p>
               <div className="flex flex-wrap justify-center gap-3">
-                <Link href="/register" className={cn(buttonVariants(), 'rounded-xl shadow')}>Register to add yours</Link>
+                {data.session.authenticated ? (
+                  <Link href="/projects" className={cn(buttonVariants(), 'rounded-xl shadow')}>Add your project</Link>
+                ) : (
+                  <Link href="/register" className={cn(buttonVariants(), 'rounded-xl shadow')}>Register to add yours</Link>
+                )}
                 <Link href="/discover" className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-xl shadow')}>
                   Explore discovery
                 </Link>
