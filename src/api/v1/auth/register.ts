@@ -57,7 +57,7 @@ function stringValue(value: unknown) {
 function validateRegisterBody(body: RegisterBody) {
   const values = {
     name: stringValue(body.name),
-    username: stringValue(body.username),
+    username: stringValue(body.username).toLowerCase(),
     email: stringValue(body.email).toLowerCase(),
     password: stringValue(body.password),
   };

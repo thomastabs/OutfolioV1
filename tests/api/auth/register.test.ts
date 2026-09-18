@@ -114,6 +114,85 @@ describe('POST /api/v1/auth/register', () => {
     });
   });
 
+  it('normalizes username and email casing before duplicate lookup and account creation', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler(
+      {
+        body: {
+          ...validBody,
+          username: 'Ada_Lovelace',
+          email: 'ADA@EXAMPLE.COM',
+        },
+      } as never,
+      res as never,
+    );
+
+    expect(deps.prisma.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [{ username: 'ada_lovelace' }, { email: 'ada@example.com' }],
+      },
+    });
+    expect(deps.supabase.auth.signUp).toHaveBeenCalledWith({
+      email: 'ada@example.com',
+      password: validBody.password,
+      options: {
+        data: {
+          name: validBody.name,
+          username: 'ada_lovelace',
+        },
+      },
+    });
+    expect(deps.prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        id: 'supabase-user-1',
+        username: 'ada_lovelace',
+        email: 'ada@example.com',
+        createdAt: expect.any(Date),
+      },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      userId: 'supabase-user-1',
+      username: 'ada_lovelace',
+      email: 'ada@example.com',
+      createdAt: expect.any(String),
+      session: { expiresAt: '2026-10-15T12:00:00.000Z' },
+    });
+  });
+
+  it('rejects duplicate usernames that differ only by casing', async () => {
+    const { deps, handler, res } = setup({
+      prisma: {
+        user: {
+          findFirst: jest.fn().mockImplementation(({ where }) =>
+            Promise.resolve(
+              where.OR.some((condition: { username?: string; email?: string }) => condition.username === 'ada')
+                ? { id: 'existing-user' }
+                : null,
+            ),
+          ),
+          create: jest.fn(),
+        },
+      },
+    } as never);
+
+    await handler({ body: { ...validBody, username: 'Ada' } } as never, res as never);
+
+    expect(deps.prisma.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [{ username: 'ada' }, { email: validBody.email }],
+      },
+    });
+    expect(deps.supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(deps.prisma.user.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'duplicate_username_or_email',
+      message: 'Username or email is already in use.',
+    });
+  });
+
   it('rejects duplicate username or email without creating an account', async () => {
     const { deps, handler, res } = setup({
       prisma: {
