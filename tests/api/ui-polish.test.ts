@@ -92,4 +92,12 @@ describe('Story 9556465 visual polish with Tailwind, shadcn/ui, and lucide-react
     expect(publicProjectPage).toContain('Project not found');
     expect(publicProjectPage).toContain('Back to discovery');
   });
+
+  it('makes icons inside primary (green) buttons follow the button text color instead of the fixed icon-color token', () => {
+    const globals = readProjectFile('app/styles/globals.css');
+
+    expect(globals).toContain('.text-primary-foreground svg');
+    expect(globals).toContain('.text-primary-foreground .icon');
+    expect(globals).toContain('color: inherit');
+  });
 });

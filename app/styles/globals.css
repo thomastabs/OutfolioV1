@@ -36,3 +36,16 @@
     @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
   }
 }
+
+@layer components {
+  /* colors-shapes.css forces every `svg`/`.icon` to a fixed --icon-color
+     (the primary teal), regardless of context. Inside a primary/green
+     button that color is nearly identical to the button's own background,
+     so the icon reads as barely visible next to its white label. Icons in
+     a primary-foreground context should follow the surrounding text color
+     instead of the fixed icon-color token. */
+  .text-primary-foreground svg,
+  .text-primary-foreground .icon {
+    color: inherit;
+  }
+}
