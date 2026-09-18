@@ -42,7 +42,7 @@ function invalidCredentials(res: Response) {
 
 function validateLoginBody(body: LoginBody) {
   const values = {
-    username: stringValue(body.username),
+    username: stringValue(body.username).toLowerCase(),
     password: stringValue(body.password),
   };
   const fields: Partial<Record<keyof typeof values, string>> = {};

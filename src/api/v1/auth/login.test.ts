@@ -64,6 +64,30 @@ describe('POST /api/v1/auth/login', () => {
     });
   });
 
+  it('normalizes username casing before looking up valid credentials', async () => {
+    const { deps, handler, res } = setup({
+      prisma: {
+        user: {
+          findUnique: jest.fn().mockImplementation(({ where }) =>
+            Promise.resolve(where.username === 'ada' ? existingUser : null),
+          ),
+        },
+      },
+    } as never);
+
+    await handler({ body: { username: 'Ada', password: 'correct-password' } } as never, res as never);
+
+    expect(deps.prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { username: 'ada' },
+    });
+    expect(deps.supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: existingUser.email,
+      password: 'correct-password',
+    });
+    expect(deps.establishSession).toHaveBeenCalledWith(existingUser, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('returns invalid credentials for an incorrect password', async () => {
     const { deps, handler, res } = setup({
       supabase: {
