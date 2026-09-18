@@ -38,6 +38,10 @@ function visibilityLabel(visibility: string) {
   return visibility.charAt(0).toUpperCase() + visibility.slice(1);
 }
 
+function visibilityIndicatorClass(visibility: string) {
+  return `state-indicator state-indicator--${visibility.toLowerCase()}`;
+}
+
 function isDraftProject(project: ProjectSummary) {
   return project.visibility.toLowerCase() === 'draft';
 }
@@ -122,7 +126,11 @@ export function ProjectList({
               </div>
               <div>
                 <dt>Visibility</dt>
-                <dd>{visibilityLabel(project.visibility)}</dd>
+                <dd>
+                  <span className={visibilityIndicatorClass(project.visibility)}>
+                    {visibilityLabel(project.visibility)}
+                  </span>
+                </dd>
               </div>
             </dl>
             <div className="responsive-actions">

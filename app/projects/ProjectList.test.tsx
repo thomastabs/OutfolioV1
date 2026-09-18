@@ -49,6 +49,15 @@ describe('ProjectList', () => {
     expect(screen.getByText('Draft')).toBeInTheDocument();
   });
 
+  it('uses branded visual indicators for project visibility states', () => {
+    render(<ProjectList projects={projects} status="ready" />);
+
+    expect(screen.getByText('Draft')).toHaveClass('state-indicator');
+    expect(screen.getByText('Draft')).toHaveClass('state-indicator--draft');
+    expect(screen.getByText('Published')).toHaveClass('state-indicator');
+    expect(screen.getByText('Published')).toHaveClass('state-indicator--published');
+  });
+
   it('shows delete controls only for draft projects', () => {
     render(<ProjectList projects={projects} status="ready" />);
 

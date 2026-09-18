@@ -50,6 +50,8 @@ describe('ProfilePage session guard', () => {
     expect(within(profileSection).getByText('Builds rigorous developer tools.')).toBeInTheDocument();
     expect(within(profileSection).getByText('7 years')).toBeInTheDocument();
     expect(within(profileSection).getByText('Public')).toBeInTheDocument();
+    expect(within(profileSection).getByText('Public')).toHaveClass('state-indicator');
+    expect(within(profileSection).getByText('Public')).toHaveClass('state-indicator--published');
     expect(within(profileSection).getByText('OutSystems Associate Reactive Developer')).toBeInTheDocument();
     expect(within(profileSection).getByText('AWS Developer')).toBeInTheDocument();
     expect(within(profileSection).getByRole('link', { name: 'https://example.com/ada' })).toHaveAttribute('href', 'https://example.com/ada');
@@ -77,6 +79,9 @@ describe('ProfilePage session guard', () => {
     expect(screen.getByText('No experience added yet')).toBeInTheDocument();
     expect(screen.getByText('No certifications added yet')).toBeInTheDocument();
     expect(screen.getByText('No links added yet')).toBeInTheDocument();
+    const profileSection = screen.getByRole('region', { name: /developer profile/i });
+    expect(within(profileSection).getByText('Private')).toHaveClass('state-indicator');
+    expect(within(profileSection).getByText('Private')).toHaveClass('state-indicator--private');
   });
 
   it('redirects unauthenticated users to login', async () => {

@@ -4,21 +4,32 @@
  */
 
 :root {
-  /* Color tokens */
+  /* Brand color tokens */
   --color-primary: #0f766e;
-  --color-primary-hover: #115e59;
-  --color-primary-soft: #ccfbf1;
-  --color-secondary: #c2410c;
-  --color-secondary-hover: #9a3412;
-  --color-secondary-soft: #ffedd5;
-  --color-accent: #2563eb;
+  --color-primary-dark: #115e59;
+  --color-primary-light: #ccfbf1;
+  --color-primary-hover: var(--color-primary-dark);
+  --color-primary-soft: var(--color-primary-light);
+  --color-secondary: #9a3412;
+  --color-secondary-dark: #7c2d12;
+  --color-secondary-light: #ffedd5;
+  --color-secondary-hover: var(--color-secondary-dark);
+  --color-secondary-soft: var(--color-secondary-light);
+  --color-accent: #1d4ed8;
   --color-accent-soft: #dbeafe;
+  --color-link: #0f766e;
+  --color-link-hover: #115e59;
+
+  /* Background and text tokens */
   --color-background: #f8fafc;
   --color-surface: #ffffff;
   --color-surface-muted: #f1f5f9;
   --color-overlay: rgba(15, 23, 42, 0.48);
-  --color-text: #172033;
-  --color-text-muted: #5b6577;
+  --color-text-primary: #172033;
+  --color-text-secondary: #475569;
+  --color-text-disabled: #64748b;
+  --color-text: var(--color-text-primary);
+  --color-text-muted: var(--color-text-secondary);
   --color-border: #ccd5e1;
   --color-border-strong: #94a3b8;
   --color-error: #b42318;
@@ -26,7 +37,19 @@
   --color-warning: #a15c07;
   --color-warning-soft: #fef3c7;
   --color-success: #087443;
-  --color-focus: #2563eb;
+  --color-focus: var(--color-accent);
+
+  /* Branded content-state indicators. Each text/background pair is WCAG AA. */
+  --color-state-draft-bg: #f3f4f6;
+  --color-state-draft-text: #374151;
+  --color-state-published-bg: #d1fae5;
+  --color-state-published-text: #065f46;
+  --color-state-private-bg: #fee2e2;
+  --color-state-private-text: #991b1b;
+  --color-state-unlisted-bg: #fef3c7;
+  --color-state-unlisted-text: #92400e;
+  --color-state-unpublished-bg: #e0e7ff;
+  --color-state-unpublished-text: #3730a3;
 
   /* Typography tokens exposed from the theme layer for component authors. */
   --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -51,7 +74,7 @@
 
 body {
   background: var(--color-background);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -62,14 +85,14 @@ main {
 }
 
 a {
-  color: var(--color-primary);
+  color: var(--color-link);
   font-weight: var(--font-weight-medium);
   text-decoration-thickness: 0.08em;
   text-underline-offset: 0.18em;
 }
 
 a:hover {
-  color: var(--color-primary-hover);
+  color: var(--color-link-hover);
 }
 
 button,
@@ -123,13 +146,13 @@ a[class],
 }
 
 .button--primary:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-dark);
 }
 
 .button--secondary {
   background: var(--color-surface);
   border-color: var(--color-border);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .button--secondary:hover {
@@ -139,12 +162,12 @@ a[class],
 
 .button--ghost {
   background: transparent;
-  color: var(--color-primary);
+  color: var(--color-link);
 }
 
 .button--ghost:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
+  background: var(--color-primary-light);
+  color: var(--color-link-hover);
 }
 
 .button:hover {
@@ -172,7 +195,7 @@ a[class],
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
@@ -186,7 +209,7 @@ a[class],
 }
 
 .form-input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-text-disabled);
 }
 
 .form-input:hover {
@@ -219,7 +242,7 @@ a[class],
 .navigation-link {
   align-items: center;
   border-radius: var(--radius-control);
-  color: var(--color-primary);
+  color: var(--color-link);
   display: inline-flex;
   font-family: var(--font-family-sans);
   font-size: var(--font-size-body);
@@ -232,8 +255,8 @@ a[class],
 }
 
 .navigation-link:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
+  background: var(--color-primary-light);
+  color: var(--color-link-hover);
 }
 
 .navigation-link:focus-visible {
@@ -273,7 +296,7 @@ a[class],
 }
 
 .project-card p {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   margin-bottom: 0;
 }
 
@@ -287,7 +310,7 @@ a[class],
   background: var(--color-surface-muted);
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-card);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   display: grid;
   gap: var(--component-gap);
   padding: var(--space-lg);
@@ -325,6 +348,49 @@ a[class],
   color: var(--color-warning);
 }
 
+.state-indicator {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-caption);
+  min-height: 1.75rem;
+  padding: var(--space-2xs) var(--space-sm);
+}
+
+.state-indicator--draft {
+  background: var(--color-state-draft-bg);
+  border-color: var(--color-border);
+  color: var(--color-state-draft-text);
+}
+
+.state-indicator--published,
+.state-indicator--public {
+  background: var(--color-state-published-bg);
+  border-color: #86efac;
+  color: var(--color-state-published-text);
+}
+
+.state-indicator--private {
+  background: var(--color-state-private-bg);
+  border-color: #fca5a5;
+  color: var(--color-state-private-text);
+}
+
+.state-indicator--unlisted {
+  background: var(--color-state-unlisted-bg);
+  border-color: #fcd34d;
+  color: var(--color-state-unlisted-text);
+}
+
+.state-indicator--unpublished {
+  background: var(--color-state-unpublished-bg);
+  border-color: #a5b4fc;
+  color: var(--color-state-unpublished-text);
+}
+
 button,
 .home-actions a:first-of-type,
 .home-primary-link {
@@ -335,7 +401,7 @@ button,
 button:hover,
 .home-actions a:first-of-type:hover,
 .home-primary-link:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-dark);
   color: var(--color-surface);
 }
 
@@ -343,7 +409,7 @@ button:hover,
 .home-highlights a {
   background: var(--color-surface);
   border-color: var(--color-border);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 button:focus-visible,

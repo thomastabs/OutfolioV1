@@ -92,9 +92,10 @@ export default function ProfilePage() {
 function ProfileDetails({ profile }: { profile: ProfileData }) {
   const experienceText = profile.experienceYears > 0 ? `${profile.experienceYears} ${profile.experienceYears === 1 ? 'year' : 'years'}` : 'No experience added yet';
   const visibilityText = profile.visibility.charAt(0).toUpperCase() + profile.visibility.slice(1);
+  const visibilityClass = profile.visibility === 'public' ? 'published' : profile.visibility;
 
   return (
-        <section className="responsive-section profile-summary" aria-label="Developer profile">
+    <section className="responsive-section profile-summary" aria-label="Developer profile">
       <h2>{profile.name || 'No name added yet'}</h2>
       <dl className="responsive-definition-grid">
         <div>
@@ -107,7 +108,11 @@ function ProfileDetails({ profile }: { profile: ProfileData }) {
         </div>
         <div>
           <dt>Visibility</dt>
-          <dd>{visibilityText}</dd>
+          <dd>
+            <span className={`state-indicator state-indicator--${visibilityClass}`}>
+              {visibilityText}
+            </span>
+          </dd>
         </div>
         <div>
           <dt>Certifications</dt>

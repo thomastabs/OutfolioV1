@@ -20,7 +20,8 @@ Traceability: this README summarizes implemented work through:
   `9543687`, `9543688`, `9543690`
 - Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
   `9552555`, `9552556`
-- User Interface and Visual Design: Stories `9552558`, `9552559`, `9552560`
+- User Interface and Visual Design: Stories `9552558`, `9552559`, `9552560`,
+  `9552561`
 
 ## Current Scope
 
@@ -44,11 +45,13 @@ The implemented application covers:
   management, public portfolio, public project, and discovery pages.
 - Themed reusable UI components for buttons, form inputs, navigation links,
   project cards, empty states, and validation feedback messages.
+- Branded color palette, accessible contrast checks, and visual state
+  indicators for draft, published, private, unlisted, and unpublished content.
 
 The remaining planned scope before final end-to-end validation is:
 
-- Remaining User Interface and Visual Design stories after themed component
-  creation.
+- Remaining User Interface and Visual Design stories after branding and color
+  scheme application.
 
 ## Tech Stack
 
@@ -367,7 +370,9 @@ classes and CSS media-query rules across auth, profile editor, project
 management, public developer profile, public project, and discovery pages.
 Story `9552560` adds reusable themed components and shared state styles for
 buttons, text inputs, textareas, navigation links, project cards, empty states,
-and validation feedback messages.
+and validation feedback messages. Story `9552561` applies the Outfolio brand
+palette, contrast-tested text and interaction colors, and branded state
+indicators for project/profile visibility states.
 
 Candidate stories:
 
@@ -442,11 +447,11 @@ Candidate stories:
 
 ## Current Local Verification Baseline
 
-At the latest Story `9552560` local verification point:
+At the latest Story `9552561` local verification point:
 
-- `pnpm test -- tests/api/themed-components.test.ts app/components/Button.test.tsx app/components/FormInput.test.tsx app/components/NavigationLink.test.tsx app/components/ProjectCard.test.tsx app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx app/components/PublishedProjectCard.test.tsx app/projects/ProjectList.test.tsx --runInBand`
-  passed: 9 suites, 30 tests.
-- `pnpm test -- --runInBand` passed: 47 suites, 248 tests.
+- `pnpm test -- tests/api/branding.test.ts app/projects/ProjectList.test.tsx app/profile/page.tsx.test.tsx --runInBand`
+  passed: 3 suites, 20 tests.
+- `pnpm test -- --runInBand` passed: 48 suites, 253 tests.
 - `pnpm build` passed.
 - `git diff --check` passed.
 - `pnpm prisma migrate deploy` passed against the linked Supabase database.
