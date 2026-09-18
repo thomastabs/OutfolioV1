@@ -23,7 +23,7 @@ const authPaths = ['/login', '/register'];
 function SessionPersistenceGuard({ children }: ProvidersProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { status } = useSession();
+  const { status, update } = useSession();
 
   useEffect(() => {
     const isProtectedPath = protectedPathPrefixes.some((prefix) => pathname.startsWith(prefix));
@@ -45,10 +45,12 @@ function SessionPersistenceGuard({ children }: ProvidersProps) {
 
         if (!response.ok) {
           await fetch('/api/v1/auth/logout', { method: 'POST' }).catch(() => undefined);
+          await update();
           router.replace('/login');
         }
       } catch {
         if (isActive && isProtectedPath) {
+          await update();
           router.replace('/login');
         }
       }
@@ -59,7 +61,7 @@ function SessionPersistenceGuard({ children }: ProvidersProps) {
     return () => {
       isActive = false;
     };
-  }, [pathname, router, status]);
+  }, [pathname, router, status, update]);
 
   useEffect(() => {
     if (status === 'authenticated' && authPaths.includes(pathname)) {

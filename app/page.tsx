@@ -8,6 +8,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { buttonVariants } from '@/app/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { cn } from '@/src/lib/utils';
+import { useSession } from './session-context';
 
 type ProjectHighlight = {
   id: string;
@@ -116,12 +117,14 @@ async function loadCurrentSession(): Promise<DashboardSession> {
 }
 
 export default function HomePage() {
+  const { update: updateSharedSession } = useSession();
   const [dashboardState, setDashboardState] = useState<DashboardState>({ status: 'loading' });
 
   async function handleLogout() {
     try {
       await fetch('/api/v1/auth/logout', { method: 'POST' });
     } finally {
+      await updateSharedSession();
       setDashboardState((current) =>
         current.status === 'ready'
           ? { status: 'ready', data: { ...current.data, session: { authenticated: false } } }

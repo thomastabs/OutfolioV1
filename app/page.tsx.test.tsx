@@ -2,6 +2,12 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomePage from './page';
 
+const updateSharedSession = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('./session-context', () => ({
+  useSession: () => ({ status: 'authenticated', data: null, update: updateSharedSession }),
+}));
+
 const dashboardResponse = {
   productName: 'Outfolio',
   valueProposition: 'Create a public developer portfolio with polished project case studies.',
@@ -74,6 +80,7 @@ describe('HomePage', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     global.fetch = jest.fn();
+    updateSharedSession.mockClear();
   });
 
   it('loads dashboard data and displays product identity and visitor navigation', async () => {
@@ -203,6 +210,7 @@ describe('HomePage', () => {
     await user.click(logoutButton);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/logout', { method: 'POST' }));
+    await waitFor(() => expect(updateSharedSession).toHaveBeenCalled());
     expect(await screen.findByRole('link', { name: 'Register' })).toHaveAttribute('href', '/register');
     expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login');
     expect(screen.queryByText('Welcome back, ada.')).not.toBeInTheDocument();
