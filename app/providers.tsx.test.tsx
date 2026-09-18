@@ -8,7 +8,7 @@ let sessionState: { status: 'loading' | 'authenticated' | 'unauthenticated'; dat
   data: { user: { email: 'ada@example.com' } },
 };
 
-jest.mock('next-auth/react', () => ({
+jest.mock('./session-context', () => ({
   SessionProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useSession: () => sessionState,
 }));

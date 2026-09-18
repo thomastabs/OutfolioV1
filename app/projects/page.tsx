@@ -3,8 +3,8 @@
 import { useCallback, useEffect } from 'react';
 import { useState } from 'react';
 import { FolderKanban, PlusCircle } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useSession } from '../session-context';
 import { ValidationMessage } from '../components/ValidationMessage';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';

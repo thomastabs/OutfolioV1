@@ -9,7 +9,7 @@ let sessionState: { status: 'loading' | 'authenticated' | 'unauthenticated'; dat
   data: null,
 };
 
-jest.mock('next-auth/react', () => ({
+jest.mock('../session-context', () => ({
   useSession: () => ({ ...sessionState, update }),
 }));
 

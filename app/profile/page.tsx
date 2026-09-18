@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { BadgeCheck, Link as LinkIcon, Shield, UserRound } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useSession } from '../session-context';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { ProfileEditor, type ProfileData } from './ProfileEditor';

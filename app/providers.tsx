@@ -1,9 +1,9 @@
 'use client';
 
-import { SessionProvider, useSession } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { SessionProvider, useSession } from './session-context';
 
 type ProvidersProps = {
   children: ReactNode;
