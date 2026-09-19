@@ -48,6 +48,11 @@ jobs:
       - name: Build Next.js app
         run: pnpm build
 
+      - name: Link Vercel project
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
       - name: Pull Vercel production environment
         run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
