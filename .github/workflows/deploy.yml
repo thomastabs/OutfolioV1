@@ -19,6 +19,7 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_SCOPE: tomassantostaborda-8127s-projects
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
@@ -48,13 +49,8 @@ jobs:
       - name: Build Next.js app
         run: pnpm build
 
-      - name: Link Vercel project
-        run: |
-          mkdir -p .vercel
-          printf '{"remoteName":"origin","projects":[{"id":"%s","name":"outfolio-v1","directory":".","orgId":"%s"}]}\n' "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/repo.json
-
       - name: Pull Vercel production environment
-        run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: pnpm dlx vercel pull --yes --environment=production --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Deploy to Vercel production
-        run: pnpm dlx vercel deploy --prod --token="$VERCEL_TOKEN"
+        run: pnpm dlx vercel deploy --prod --yes --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"

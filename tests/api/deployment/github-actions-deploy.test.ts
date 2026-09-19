@@ -16,8 +16,8 @@ describe('GitHub Actions deployment workflow', () => {
     expect(source).toContain('pnpm install --frozen-lockfile');
     expect(source).toContain('pnpm test');
     expect(source).toContain('pnpm build');
-    expect(source).toContain('mkdir -p .vercel');
-    expect(source).toContain('> .vercel/repo.json');
+    expect(source).toContain('--project="$VERCEL_PROJECT_ID"');
+    expect(source).toContain('--scope="$VERCEL_SCOPE"');
     expect(source).toContain('vercel deploy --prod');
   });
 
