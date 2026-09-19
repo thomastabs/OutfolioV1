@@ -17,7 +17,7 @@ Traceability: this README summarizes implemented work through:
   `9543674`
 - Project Discovery and Browsing: Stories `9543679`, `9543680`, `9543681`
 - Quality, Deployment and Demo Readiness: Stories `9543689`, `9543686`,
-  `9543687`, `9543688`, `9543690`
+  `9543687`, `9543688`, `9543690`, `9543691`
 - Home Dashboard: Stories `9552550`, `9552551`, `9552553`, `9552554`,
   `9552555`, `9552556`
 - User Interface and Visual Design: Stories `9552558`, `9552559`, `9552560`,
@@ -43,8 +43,8 @@ The implemented application covers:
   shapes, and form validation states.
 - Responsive layout hooks and CSS media-query rules for auth, profile, project
   management, public portfolio, public project, and discovery pages.
-- Themed reusable UI components for buttons, form inputs, navigation links,
-  project cards, empty states, and validation feedback messages.
+- shadcn-style themed UI primitives for buttons, cards, inputs, textareas,
+  badges, empty states, validation feedback, and navigation actions.
 - Branded color palette, accessible contrast checks, and visual state
   indicators for draft, published, private, unlisted, and unpublished content.
 - Accessibility enhancements for keyboard focus, semantic page structure,
@@ -54,9 +54,8 @@ The implemented application covers:
   polished redesign of `/`, `/projects`, `/profile`, `/discover`, public
   developer profiles, and public project pages.
 
-The remaining planned scope before final end-to-end validation is:
-
-- Story `9543691` End-to-End Product Flow Validation.
+Phase 4 testing has been completed for the full locked 8-epic scope. Phase 5
+deployment work is tracked through Apex and the local demonstration log.
 
 ## Tech Stack
 
@@ -95,6 +94,8 @@ The remaining planned scope before final end-to-end validation is:
 - `app/styles` - global visual style guide CSS variables and form styles
 - `app/components/ui` - shadcn-style Button, Card, Input, Textarea, and Badge
   primitives used by the polished UI layer
+- `.github/workflows/deploy.yml` - GitHub Actions CI/CD workflow for
+  production deployment to Vercel
 - `tailwind.config.js` and `postcss.config.js` - Tailwind CSS integration for
   Next.js app directory mode
 - `prisma/schema.prisma` - User, Profile, and Project data model
@@ -207,7 +208,8 @@ pnpm test -- --testPathPattern=app/discover/page.tsx.test.tsx
 pnpm test -- app/page.tsx.test.tsx
 pnpm test -- --testPathPattern=app/providers.tsx.test.tsx
 pnpm test -- tests/api/responsive-layout.test.ts
-pnpm test -- tests/api/themed-components.test.ts app/components/Button.test.tsx app/components/FormInput.test.tsx app/components/NavigationLink.test.tsx app/components/ProjectCard.test.tsx app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx
+pnpm test -- tests/api/themed-components.test.ts app/components/EmptyState.test.tsx app/components/ValidationMessage.test.tsx app/components/ui/button.test.tsx app/components/ui/back-button.test.tsx
+pnpm test -- tests/api/accessibility-ui.test.ts tests/api/branding.test.ts
 pnpm test -- tests/api/ui-polish.test.ts app/components/ui/ui-polish.test.tsx
 ```
 
@@ -221,6 +223,7 @@ pnpm test -- tests/api/prisma/project-schema.test.ts
 Deployment-readiness checks:
 
 ```bash
+pnpm test -- tests/api/deployment/github-actions-deploy.test.ts
 pnpm test -- tests/api/v1/deployment-router.test.ts
 pnpm build
 ```
@@ -229,6 +232,8 @@ pnpm build
 
 Traceability: this section covers Story `9543690`, deployment technical
 requirements DT-1 and DT-3, and runtime requirements RT-1, RT-2, and RT-3.
+The repo-local CI/CD workflow added during Phase 5 also traces to Story
+`9543457`'s deployment gate and deploy pack.
 
 The real infrastructure delta for Story `9543690` is the API v1 App Router
 bridge plus production environment and database migration verification. The
@@ -249,6 +254,21 @@ NEXTAUTH_SECRET
 
 If any of those values are missing in production, `/api/v1` returns a
 configuration error instead of silently running with placeholder credentials.
+
+Required GitHub Actions repository secrets for `.github/workflows/deploy.yml`:
+
+```bash
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_PROJECT_ID
+```
+
+The workflow runs on pushes to `main` and can also be triggered manually with
+`workflow_dispatch`. It installs dependencies with pnpm, generates the Prisma
+client, runs the Jest suite, builds the Next.js app, pulls the Vercel
+production environment, and deploys to Vercel production with the Vercel CLI.
+Supabase and application runtime secrets should remain configured in Vercel,
+not committed to this repository.
 
 Recommended deployment preparation:
 

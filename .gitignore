@@ -7,3 +7,5 @@ demonstration-log.local.md
 env
 node_modules
 .next
+.vercel
+.env*
