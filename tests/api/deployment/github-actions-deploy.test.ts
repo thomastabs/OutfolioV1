@@ -17,7 +17,7 @@ describe('GitHub Actions deployment workflow', () => {
     expect(source).toContain('pnpm test');
     expect(source).toContain('pnpm build');
     expect(source).toContain('mkdir -p .vercel');
-    expect(source).toContain('> .vercel/project.json');
+    expect(source).toContain('> .vercel/repo.json');
     expect(source).toContain('vercel deploy --prod');
   });
 

@@ -51,7 +51,7 @@ jobs:
       - name: Link Vercel project
         run: |
           mkdir -p .vercel
-          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          printf '{"remoteName":"origin","projects":[{"id":"%s","name":"outfolio-v1","directory":".","orgId":"%s"}]}\n' "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/repo.json
 
       - name: Pull Vercel production environment
         run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
