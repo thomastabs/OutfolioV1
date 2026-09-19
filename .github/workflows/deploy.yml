@@ -4,6 +4,30 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    # Apex's Phase 5 dispatch always sends these four inputs (environment,
+    # plus three traceability fields when "Send Apex metadata inputs" is
+    # checked) - GitHub rejects a dispatch carrying any input a workflow
+    # has not declared, so they must all be listed here even though none
+    # of the job steps below currently read them. Declared, not required:
+    # a plain manual "Run workflow" click from the GitHub UI with nothing
+    # filled in must still work.
+    inputs:
+      environment:
+        description: "Target environment (informational only - this job always deploys to Vercel production)"
+        required: false
+        type: string
+      story_id:
+        description: "Apex story id this deployment traces back to"
+        required: false
+        type: string
+      apex_project_id:
+        description: "Apex project id this deployment traces back to"
+        required: false
+        type: string
+      deploy_pack_hash:
+        description: "Hash of the Apex deploy pack reviewed for this deployment"
+        required: false
+        type: string
 
 concurrency:
   group: deploy-outfolio-production
