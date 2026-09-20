@@ -1,26 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BriefcaseBusiness, Compass, ImageIcon, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Compass, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { ProjectHighlightCard, type ProjectHighlight } from '@/app/components/ProjectHighlightCard';
 import { Badge } from '@/app/components/ui/badge';
 import { buttonVariants } from '@/app/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Card, CardContent } from '@/app/components/ui/card';
 import { cn } from '@/src/lib/utils';
 import { useSession } from './session-context';
-
-type ProjectHighlight = {
-  id: string;
-  title: string;
-  slug?: string | null;
-  summary?: string | null;
-  coverImageUrl?: string | null;
-  projectType?: string | null;
-  tags?: string[] | null;
-  role?: string | null;
-  visibility?: string | null;
-};
 
 type DashboardSession =
   | {
@@ -146,62 +135,6 @@ async function loadCurrentSession(): Promise<DashboardSession> {
   } catch {
     return { authenticated: false };
   }
-}
-
-function ProjectHighlightCover({ project }: { project: ProjectHighlight }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const coverImageUrl = project.coverImageUrl?.trim();
-
-  if (coverImageUrl && !imageFailed) {
-    return (
-      <img
-        className="project-highlight-cover"
-        src={coverImageUrl}
-        alt={`${project.title} cover image`}
-        loading="lazy"
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
-  return (
-    <div className="project-highlight-placeholder" role="img" aria-label={`Placeholder image for ${project.title}`}>
-      <ImageIcon className="h-7 w-7" aria-hidden="true" />
-    </div>
-  );
-}
-
-function canViewPublicProject(project: ProjectHighlight) {
-  return project.visibility === 'PUBLISHED' && Boolean(project.slug?.trim());
-}
-
-function ProjectHighlightMetadata({ project }: { project: ProjectHighlight }) {
-  const projectType = project.projectType?.trim();
-  const role = project.role?.trim();
-  const tags = (project.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
-
-  if (!projectType && !role && tags.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="grid gap-2" aria-label={`Project metadata for ${project.title}`}>
-      <div className="flex flex-wrap gap-2 text-xs font-medium text-muted-foreground">
-        {projectType ? <span>{projectType}</span> : null}
-        {projectType && role ? <span aria-hidden="true">/</span> : null}
-        {role ? <span>{role}</span> : null}
-      </div>
-      {tags.length > 0 ? (
-        <div className="flex flex-wrap gap-2" aria-label={`Tags for ${project.title}`}>
-          {tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="px-2 py-0 text-[0.7rem]">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export default function HomePage() {
@@ -363,31 +296,10 @@ export default function HomePage() {
           </Link>
         </div>
         {data.publishedProjects.length > 0 ? (
-          <ul className="grid gap-5 md:grid-cols-3" aria-label="Published project highlights">
+          <ul className="project-highlight-grid" aria-label="Published project highlights">
             {data.publishedProjects.map((project) => (
               <li key={project.id}>
-                <Card className="project-highlight-card h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
-                  <CardHeader className="project-highlight-card__body">
-                    <ProjectHighlightCover project={project} />
-                    <div className="project-highlight-card__copy">
-                      <CardTitle>{project.title}</CardTitle>
-                      <ProjectHighlightMetadata project={project} />
-                      <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
-                    </div>
-                  </CardHeader>
-                  {canViewPublicProject(project) ? (
-                    <CardFooter className="pt-0">
-                      <Link
-                        href={`/project/${project.slug}`}
-                        className={cn(buttonVariants({ variant: 'secondary' }), 'w-full rounded-xl shadow-sm sm:w-auto')}
-                        aria-label={`View full project: ${project.title}`}
-                      >
-                        View full project
-                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                      </Link>
-                    </CardFooter>
-                  ) : null}
-                </Card>
+                <ProjectHighlightCard project={project} />
               </li>
             ))}
           </ul>
