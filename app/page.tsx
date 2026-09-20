@@ -175,6 +175,35 @@ function canViewPublicProject(project: ProjectHighlight) {
   return project.visibility === 'PUBLISHED' && Boolean(project.slug?.trim());
 }
 
+function ProjectHighlightMetadata({ project }: { project: ProjectHighlight }) {
+  const projectType = project.projectType?.trim();
+  const role = project.role?.trim();
+  const tags = (project.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
+
+  if (!projectType && !role && tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2" aria-label={`Project metadata for ${project.title}`}>
+      <div className="flex flex-wrap gap-2 text-xs font-medium text-muted-foreground">
+        {projectType ? <span>{projectType}</span> : null}
+        {projectType && role ? <span aria-hidden="true">/</span> : null}
+        {role ? <span>{role}</span> : null}
+      </div>
+      {tags.length > 0 ? (
+        <div className="flex flex-wrap gap-2" aria-label={`Tags for ${project.title}`}>
+          {tags.map((tag) => (
+            <Badge key={tag} variant="outline" className="px-2 py-0 text-[0.7rem]">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { update: updateSharedSession } = useSession();
   const [dashboardState, setDashboardState] = useState<DashboardState>({ status: 'loading' });
@@ -342,6 +371,7 @@ export default function HomePage() {
                     <ProjectHighlightCover project={project} />
                     <div className="project-highlight-card__copy">
                       <CardTitle>{project.title}</CardTitle>
+                      <ProjectHighlightMetadata project={project} />
                       <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
                     </div>
                   </CardHeader>

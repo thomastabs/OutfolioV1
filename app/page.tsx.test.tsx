@@ -182,6 +182,45 @@ describe('HomePage', () => {
     await expect(user.click(portfolioLink)).resolves.toBeUndefined();
   });
 
+  it('displays project metadata below published project highlight titles', async () => {
+    mockHomeRequests();
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    const portfolioMetadata = within(list).getByLabelText('Project metadata for Portfolio Builder');
+    const portfolioTags = within(list).getByLabelText('Tags for Portfolio Builder');
+
+    expect(within(portfolioMetadata).getByText('Web app')).toBeInTheDocument();
+    expect(within(portfolioMetadata).getByText('Full-stack developer')).toBeInTheDocument();
+    expect(within(portfolioTags).getByText('portfolio')).toBeInTheDocument();
+    expect(within(portfolioTags).getByText('documentation')).toBeInTheDocument();
+  });
+
+  it('omits empty project metadata fields without leaving placeholder text', async () => {
+    mockHomeRequests({
+      dashboard: {
+        ...dashboardResponse,
+        publishedProjects: [
+          {
+            ...dashboardResponse.publishedProjects[0],
+            projectType: '',
+            tags: [],
+            role: '',
+          },
+        ],
+      },
+    });
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    expect(within(list).getByText('Portfolio Builder')).toBeInTheDocument();
+    expect(within(list).queryByLabelText('Project metadata for Portfolio Builder')).not.toBeInTheDocument();
+    expect(within(list).queryByLabelText('Tags for Portfolio Builder')).not.toBeInTheDocument();
+    expect(within(list).queryByText(/No metadata/i)).not.toBeInTheDocument();
+  });
+
   it('hides project highlight calls to action when a project is not publicly visible', async () => {
     mockHomeRequests({
       dashboard: {
