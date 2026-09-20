@@ -4,6 +4,7 @@ export type HomeDashboardProjectHighlight = {
   id: string;
   title: string;
   summary: string;
+  coverImageUrl: string;
 };
 
 type HomeDashboardSession =
@@ -21,7 +22,7 @@ type HomeDashboardDependencies = {
     project: {
       findMany(args: {
         where: { visibility: 'PUBLISHED' };
-        select: { id: true; title: true; summary: true };
+        select: { id: true; title: true; summary: true; coverImageUrl: true };
         orderBy: { title: 'asc' };
         take: number;
       }): Promise<HomeDashboardProjectHighlight[]>;
@@ -51,7 +52,7 @@ export function createHomeDashboardHandler(dependencies: HomeDashboardDependenci
       const [publishedProjects, session] = await Promise.all([
         dependencies.prisma.project.findMany({
           where: { visibility: 'PUBLISHED' },
-          select: { id: true, title: true, summary: true },
+          select: { id: true, title: true, summary: true, coverImageUrl: true },
           orderBy: { title: 'asc' },
           take: 3,
         }),

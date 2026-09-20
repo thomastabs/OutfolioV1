@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomePage from './page';
 
@@ -19,11 +19,13 @@ const dashboardResponse = {
       id: 'project-1',
       title: 'Portfolio Builder',
       summary: 'A documentation workspace for portfolio projects.',
+      coverImageUrl: 'https://example.com/portfolio-cover.png',
     },
     {
       id: 'project-2',
       title: 'Case Study API',
       summary: 'A public project API case study.',
+      coverImageUrl: '',
     },
   ],
 };
@@ -137,6 +139,34 @@ describe('HomePage', () => {
     expect(within(list).getByText('A public project API case study.')).toBeInTheDocument();
     expect(within(list).queryByText('Private Draft')).not.toBeInTheDocument();
     expect(within(list).queryByText('Unpublished Project')).not.toBeInTheDocument();
+  });
+
+  it('displays project cover images or accessible placeholders on highlight cards', async () => {
+    mockHomeRequests();
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    const coverImage = within(list).getByRole('img', { name: 'Portfolio Builder cover image' });
+    const placeholder = within(list).getByRole('img', { name: 'Placeholder image for Case Study API' });
+
+    expect(coverImage).toHaveAttribute('src', 'https://example.com/portfolio-cover.png');
+    expect(coverImage).toHaveClass('project-highlight-cover');
+    expect(placeholder).toHaveClass('project-highlight-placeholder');
+  });
+
+  it('falls back to a project highlight placeholder when a cover image fails to load', async () => {
+    mockHomeRequests();
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    const coverImage = within(list).getByRole('img', { name: 'Portfolio Builder cover image' });
+    fireEvent.error(coverImage);
+
+    expect(await within(list).findByRole('img', { name: 'Placeholder image for Portfolio Builder' })).toHaveClass(
+      'project-highlight-placeholder',
+    );
   });
 
   it('shows a friendly empty state when no published project highlights are available', async () => {

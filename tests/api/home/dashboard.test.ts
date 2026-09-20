@@ -12,11 +12,13 @@ const publishedProjects = [
     id: 'project-1',
     title: 'Portfolio Builder',
     summary: 'A documentation workspace for portfolio projects.',
+    coverImageUrl: 'https://example.com/portfolio-cover.png',
   },
   {
     id: 'project-2',
     title: 'Case Study API',
     summary: 'A public project API case study.',
+    coverImageUrl: '',
   },
 ];
 
@@ -55,6 +57,7 @@ describe('GET /api/v1/home/dashboard', () => {
         id: true,
         title: true,
         summary: true,
+        coverImageUrl: true,
       },
       orderBy: { title: 'asc' },
       take: 3,

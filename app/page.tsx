@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BriefcaseBusiness, Compass, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Compass, ImageIcon, LogIn, LogOut, Sparkles, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Badge } from '@/app/components/ui/badge';
@@ -14,6 +14,7 @@ type ProjectHighlight = {
   id: string;
   title: string;
   summary?: string | null;
+  coverImageUrl?: string | null;
 };
 
 type DashboardSession =
@@ -59,7 +60,12 @@ function isProjectHighlight(value: unknown): value is ProjectHighlight {
   return (
     typeof project.id === 'string' &&
     typeof project.title === 'string' &&
-    (typeof project.summary === 'string' || project.summary === null || typeof project.summary === 'undefined')
+    (typeof project.summary === 'string' || project.summary === null || typeof project.summary === 'undefined') &&
+    (
+      typeof project.coverImageUrl === 'string' ||
+      project.coverImageUrl === null ||
+      typeof project.coverImageUrl === 'undefined'
+    )
   );
 }
 
@@ -114,6 +120,29 @@ async function loadCurrentSession(): Promise<DashboardSession> {
   } catch {
     return { authenticated: false };
   }
+}
+
+function ProjectHighlightCover({ project }: { project: ProjectHighlight }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const coverImageUrl = project.coverImageUrl?.trim();
+
+  if (coverImageUrl && !imageFailed) {
+    return (
+      <img
+        className="project-highlight-cover"
+        src={coverImageUrl}
+        alt={`${project.title} cover image`}
+        loading="lazy"
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="project-highlight-placeholder" role="img" aria-label={`Placeholder image for ${project.title}`}>
+      <ImageIcon className="h-7 w-7" aria-hidden="true" />
+    </div>
+  );
 }
 
 export default function HomePage() {
@@ -278,10 +307,13 @@ export default function HomePage() {
           <ul className="grid gap-5 md:grid-cols-3" aria-label="Published project highlights">
             {data.publishedProjects.map((project) => (
               <li key={project.id}>
-                <Card className="h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
-                  <CardHeader>
-                    <CardTitle>{project.title}</CardTitle>
-                    <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
+                <Card className="project-highlight-card h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">
+                  <CardHeader className="project-highlight-card__body">
+                    <ProjectHighlightCover project={project} />
+                    <div className="project-highlight-card__copy">
+                      <CardTitle>{project.title}</CardTitle>
+                      <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
+                    </div>
                   </CardHeader>
                 </Card>
               </li>
