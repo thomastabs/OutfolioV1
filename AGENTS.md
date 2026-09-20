@@ -42,17 +42,19 @@ architecture notes, the problem it solved and the outcome, independently of
 whatever platform the underlying project was built in or whether that
 platform still exists.
 
-## Scope: 8 epics, nothing more
+## Scope: 9 epics, nothing more
 
 Originally scoped as 6 epics / ~18 stories to stay deliberately small. Two
 finishing epics (7 and 8 below) were added on 2026-09-16 by explicit human
 decision, logged in `demonstration-log.local.md` ("Planned Epics Decision
-and Progress Logged") — not something Codex proposed unasked. The
-"deliberately small" intent still applies to the total: do not propose
-expanding scope further, adding another epic, or gold-plating a story
-beyond what it asks for — if something looks genuinely missing, say so and
-let the human decide whether it becomes a new story, rather than building
-it unasked.
+and Progress Logged") — not something Codex proposed unasked. A ninth epic
+was added on 2026-09-20 through a Phase 6 maintenance loop-back into Phase 1
+and Phase 2 after the human classified two post-deployment signals as product
+change requests rather than bugs. The "deliberately small" intent still
+applies to the current locked total: do not propose expanding scope further,
+adding another epic, or gold-plating a story beyond what it asks for — if
+something looks genuinely missing, say so and let the human decide whether it
+becomes a new story, rather than building it unasked.
 
 1. **Authentication & Session** — Register account; Log in; Maintain
    authenticated session; Redirect/protect authenticated pages.
@@ -71,10 +73,21 @@ it unasked.
 7. **Home Dashboard** (added 2026-09-16) — Root `/` route as a real
    dashboard rather than a temporary redirect; auth-aware dashboard actions;
    published project highlights; empty states; navigation into existing
-   flows.
+   flows. Expanded on 2026-09-20 with four maintenance-originated stories:
+   `9560156` Project Highlight Cover Images, `9560157` Project Highlight
+   Metadata Display, `9560159` Project Highlight Call To Action, and
+   `9560160` Project Highlight Card Layout.
 8. **User Interface and Visual Design** (added 2026-09-16) — Visual style
    guide; responsive layouts; themed UI components; branding/color scheme;
    UI accessibility enhancements.
+9. **Project Media and File Attachments** (added 2026-09-20) — Richer
+   project case studies with image galleries, downloadable attachments, safe
+   file validation, OutSystems `.oml` uploads, and extracted `.oml` metadata.
+   Stories: `9560172` Project Case Study Image Upload, `9560173` Project
+   Image Gallery Management, `9560174` Public Project Image Gallery Viewing,
+   `9560175` Project Attachment Upload, `9560176` Public Project Attachment
+   Download, `9560177` File Upload Validation and Safety, `9560178`
+   OutSystems OML File Attachment, and `9560179` OML Metadata Extraction.
 
 Target: fully implemented, tested and deployed by end of September 2026.
 
@@ -191,6 +204,8 @@ from you to be fillable without the human reconstructing it afterward:
 - Don't generate implementation code before a test set for that task exists.
 - Don't generate deployment/infrastructure config unless a real delta
   requires it.
-- Don't expand scope beyond the 6 epics / ~18 stories above.
+- Don't expand scope beyond the 9 locked epics / 48 stories above unless the
+  human explicitly routes a new signal through the framework and records the
+  scope change.
 - Don't treat "I could keep going and finish the next phase too" as a reason
   to do so. Stop at the phase boundary.
