@@ -11,14 +11,24 @@ const publishedProjects = [
   {
     id: 'project-1',
     title: 'Portfolio Builder',
+    slug: 'portfolio-builder',
     summary: 'A documentation workspace for portfolio projects.',
     coverImageUrl: 'https://example.com/portfolio-cover.png',
+    projectType: 'Web app',
+    tags: ['portfolio', 'documentation'],
+    role: 'Full-stack developer',
+    visibility: 'PUBLISHED' as const,
   },
   {
     id: 'project-2',
     title: 'Case Study API',
+    slug: 'case-study-api',
     summary: 'A public project API case study.',
     coverImageUrl: '',
+    projectType: 'API',
+    tags: ['api'],
+    role: 'Backend developer',
+    visibility: 'PUBLISHED' as const,
   },
 ];
 
@@ -56,8 +66,13 @@ describe('GET /api/v1/home/dashboard', () => {
       select: {
         id: true,
         title: true,
+        slug: true,
         summary: true,
         coverImageUrl: true,
+        projectType: true,
+        tags: true,
+        role: true,
+        visibility: true,
       },
       orderBy: { title: 'asc' },
       take: 3,
@@ -105,6 +120,26 @@ describe('GET /api/v1/home/dashboard', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       publishedProjects: [],
+    }));
+  });
+
+  it('queries only published projects for home dashboard highlights', async () => {
+    const { prisma, handler, res } = setup();
+
+    await handler({ headers: {} } as never, res as never);
+
+    expect(prisma.project.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { visibility: 'PUBLISHED' },
+    }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      publishedProjects: expect.arrayContaining([
+        expect.objectContaining({
+          projectType: 'Web app',
+          tags: ['portfolio', 'documentation'],
+          role: 'Full-stack developer',
+          visibility: 'PUBLISHED',
+        }),
+      ]),
     }));
   });
 

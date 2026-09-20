@@ -3,8 +3,13 @@ import type { Request, Response } from 'express';
 export type HomeDashboardProjectHighlight = {
   id: string;
   title: string;
+  slug: string;
   summary: string;
   coverImageUrl: string;
+  projectType: string;
+  tags: string[];
+  role: string;
+  visibility: 'DRAFT' | 'PUBLISHED' | 'UNPUBLISHED';
 };
 
 type HomeDashboardSession =
@@ -22,7 +27,17 @@ type HomeDashboardDependencies = {
     project: {
       findMany(args: {
         where: { visibility: 'PUBLISHED' };
-        select: { id: true; title: true; summary: true; coverImageUrl: true };
+        select: {
+          id: true;
+          title: true;
+          slug: true;
+          summary: true;
+          coverImageUrl: true;
+          projectType: true;
+          tags: true;
+          role: true;
+          visibility: true;
+        };
         orderBy: { title: 'asc' };
         take: number;
       }): Promise<HomeDashboardProjectHighlight[]>;
@@ -52,7 +67,17 @@ export function createHomeDashboardHandler(dependencies: HomeDashboardDependenci
       const [publishedProjects, session] = await Promise.all([
         dependencies.prisma.project.findMany({
           where: { visibility: 'PUBLISHED' },
-          select: { id: true, title: true, summary: true, coverImageUrl: true },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            summary: true,
+            coverImageUrl: true,
+            projectType: true,
+            tags: true,
+            role: true,
+            visibility: true,
+          },
           orderBy: { title: 'asc' },
           take: 3,
         }),

@@ -18,14 +18,24 @@ const dashboardResponse = {
     {
       id: 'project-1',
       title: 'Portfolio Builder',
+      slug: 'portfolio-builder',
       summary: 'A documentation workspace for portfolio projects.',
       coverImageUrl: 'https://example.com/portfolio-cover.png',
+      projectType: 'Web app',
+      tags: ['portfolio', 'documentation'],
+      role: 'Full-stack developer',
+      visibility: 'PUBLISHED',
     },
     {
       id: 'project-2',
       title: 'Case Study API',
+      slug: 'case-study-api',
       summary: 'A public project API case study.',
       coverImageUrl: '',
+      projectType: 'API',
+      tags: ['api'],
+      role: 'Backend developer',
+      visibility: 'PUBLISHED',
     },
   ],
 };
@@ -153,6 +163,43 @@ describe('HomePage', () => {
     expect(coverImage).toHaveAttribute('src', 'https://example.com/portfolio-cover.png');
     expect(coverImage).toHaveClass('project-highlight-cover');
     expect(placeholder).toHaveClass('project-highlight-placeholder');
+  });
+
+  it('renders project highlight calls to action that link to public project pages', async () => {
+    const user = userEvent.setup();
+    mockHomeRequests();
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    const portfolioLink = within(list).getByRole('link', { name: 'View full project: Portfolio Builder' });
+    const apiLink = within(list).getByRole('link', { name: 'View full project: Case Study API' });
+
+    expect(portfolioLink).toHaveAttribute('href', '/project/portfolio-builder');
+    expect(apiLink).toHaveAttribute('href', '/project/case-study-api');
+
+    portfolioLink.addEventListener('click', (event) => event.preventDefault());
+    await expect(user.click(portfolioLink)).resolves.toBeUndefined();
+  });
+
+  it('hides project highlight calls to action when a project is not publicly visible', async () => {
+    mockHomeRequests({
+      dashboard: {
+        ...dashboardResponse,
+        publishedProjects: [
+          {
+            ...dashboardResponse.publishedProjects[0],
+            visibility: 'DRAFT',
+          },
+        ],
+      },
+    });
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    expect(within(list).getByText('Portfolio Builder')).toBeInTheDocument();
+    expect(within(list).queryByRole('link', { name: /View full project/i })).not.toBeInTheDocument();
   });
 
   it('falls back to a project highlight placeholder when a cover image fails to load', async () => {

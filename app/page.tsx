@@ -6,15 +6,20 @@ import { useEffect, useState } from 'react';
 
 import { Badge } from '@/app/components/ui/badge';
 import { buttonVariants } from '@/app/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { cn } from '@/src/lib/utils';
 import { useSession } from './session-context';
 
 type ProjectHighlight = {
   id: string;
   title: string;
+  slug?: string | null;
   summary?: string | null;
   coverImageUrl?: string | null;
+  projectType?: string | null;
+  tags?: string[] | null;
+  role?: string | null;
+  visibility?: string | null;
 };
 
 type DashboardSession =
@@ -60,11 +65,32 @@ function isProjectHighlight(value: unknown): value is ProjectHighlight {
   return (
     typeof project.id === 'string' &&
     typeof project.title === 'string' &&
+    (typeof project.slug === 'string' || project.slug === null || typeof project.slug === 'undefined') &&
     (typeof project.summary === 'string' || project.summary === null || typeof project.summary === 'undefined') &&
     (
       typeof project.coverImageUrl === 'string' ||
       project.coverImageUrl === null ||
       typeof project.coverImageUrl === 'undefined'
+    ) &&
+    (
+      typeof project.projectType === 'string' ||
+      project.projectType === null ||
+      typeof project.projectType === 'undefined'
+    ) &&
+    (
+      Array.isArray(project.tags) ||
+      project.tags === null ||
+      typeof project.tags === 'undefined'
+    ) &&
+    (
+      typeof project.role === 'string' ||
+      project.role === null ||
+      typeof project.role === 'undefined'
+    ) &&
+    (
+      typeof project.visibility === 'string' ||
+      project.visibility === null ||
+      typeof project.visibility === 'undefined'
     )
   );
 }
@@ -143,6 +169,10 @@ function ProjectHighlightCover({ project }: { project: ProjectHighlight }) {
       <ImageIcon className="h-7 w-7" aria-hidden="true" />
     </div>
   );
+}
+
+function canViewPublicProject(project: ProjectHighlight) {
+  return project.visibility === 'PUBLISHED' && Boolean(project.slug?.trim());
 }
 
 export default function HomePage() {
@@ -315,6 +345,18 @@ export default function HomePage() {
                       <CardDescription>{project.summary?.trim() || 'No summary added yet.'}</CardDescription>
                     </div>
                   </CardHeader>
+                  {canViewPublicProject(project) ? (
+                    <CardFooter className="pt-0">
+                      <Link
+                        href={`/project/${project.slug}`}
+                        className={cn(buttonVariants({ variant: 'secondary' }), 'w-full rounded-xl shadow-sm sm:w-auto')}
+                        aria-label={`View full project: ${project.title}`}
+                      >
+                        View full project
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </Link>
+                    </CardFooter>
+                  ) : null}
                 </Card>
               </li>
             ))}
