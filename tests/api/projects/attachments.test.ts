@@ -542,6 +542,46 @@ describe('project .oml attachments API', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  it('extracts metadata with unusual but valid characters in module name and version', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({
+        originalname: 'orders-portal.oml',
+        buffer: Buffer.from('<moduleName>Órdérs_Pörtal (EU)</moduleName><version>1.0.0-beta+build.5</version>'),
+      })],
+    } as never, res as never);
+
+    expect(prisma.omlMetadata.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { moduleName: 'Órdérs_Pörtal (EU)', version: '1.0.0-beta+build.5' },
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('gracefully falls back rather than crashing on unsupported encoding or binary-like content', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({
+        originalname: 'binary-export.oml',
+        buffer: Buffer.from([0x00, 0xff, 0xd8, 0xff, 0xe0, 0x01, 0x02, 0x03]),
+      })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename: 'binary-export.oml', isOmlFile: true }),
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('accepts an attachment exactly at the 50 MiB size limit', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);
