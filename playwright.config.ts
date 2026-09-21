@@ -18,5 +18,18 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Real-device viewport projects (Story 9563524): scoped to the
+    // responsive-layout spec only, so the golden-path/smoke tests don't
+    // triple their run count and re-exercise auth flows on every device.
+    {
+      name: 'iPhone 13',
+      use: { ...devices['iPhone 13'] },
+      testMatch: /responsive-layout\.spec\.ts/,
+    },
+    {
+      name: 'iPad Pro 11',
+      use: { ...devices['iPad Pro 11'] },
+      testMatch: /responsive-layout\.spec\.ts/,
+    },
   ],
 });

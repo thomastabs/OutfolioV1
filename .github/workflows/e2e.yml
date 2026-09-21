@@ -48,7 +48,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        # webkit is required for the iPhone 13 device-emulation project
+        # (Story 9563524), which defaults to the webkit engine.
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Generate Prisma client
         run: pnpm prisma generate
