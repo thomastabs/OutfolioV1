@@ -29,6 +29,7 @@ type UploadedFile = {
 type ProjectRecord = {
   id: string;
   ownerId: string;
+  visibility?: string;
 };
 
 type OmlMetadataRecord = {
@@ -108,6 +109,20 @@ function attachmentIdFrom(req: Request) {
 function filesFrom(req: Request) {
   const files = (req as Request & { files?: UploadedFile[] }).files;
   return Array.isArray(files) ? files : [];
+}
+
+function publicDownloadBody(attachment: AttachmentRecord) {
+  return Buffer.from([
+    `Outfolio attachment download`,
+    `Filename: ${attachment.filename}`,
+    `Attachment: ${attachment.id}`,
+    `Project: ${attachment.projectId}`,
+    '',
+  ].join('\n'));
+}
+
+function contentDispositionFilename(filename: string) {
+  return filename.replace(/["\\\r\n]/g, '_');
 }
 
 async function authorizeProject(
@@ -457,6 +472,57 @@ export function createProjectOmlMetadataHandler(deps: AttachmentsDependencies) {
   };
 }
 
+export function createPublicProjectAttachmentDownloadHandler(deps: Pick<AttachmentsDependencies, 'prisma'>) {
+  return async function publicProjectAttachmentDownloadHandler(req: Request, res: Response) {
+    try {
+      const projectId = projectIdFrom(req);
+      const attachmentId = attachmentIdFrom(req);
+
+      if (!projectId || !attachmentId) {
+        return res.status(404).json({
+          error: 'project_not_found',
+          message: 'Project or attachment not found.',
+        });
+      }
+
+      const project = await deps.prisma.project.findUnique({ where: { id: projectId } });
+      if (!project) {
+        return res.status(404).json({
+          error: 'project_not_found',
+          message: 'Project not found.',
+        });
+      }
+
+      if ((project.visibility ?? '').toUpperCase() !== 'PUBLISHED') {
+        return res.status(403).json({
+          error: 'project_not_public',
+          message: 'Project is not public.',
+        });
+      }
+
+      const attachment = await deps.prisma.projectAttachment.findFirst({
+        where: { id: attachmentId, projectId },
+      });
+      if (!attachment) {
+        return res.status(404).json({
+          error: 'attachment_not_found',
+          message: 'Attachment not found.',
+        });
+      }
+
+      res.status(200);
+      res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
+      return res.send(publicDownloadBody(attachment));
+    } catch {
+      return res.status(500).json({
+        error: 'unexpected_failure',
+        message: 'Could not download the attachment.',
+      });
+    }
+  };
+}
+
 async function dependencies() {
   const [{ prisma }, { validateSession }] = await Promise.all([
     import('@/src/lib/prisma'),
@@ -483,4 +549,8 @@ export async function projectAttachmentOrderHandler(req: Request, res: Response)
 
 export async function projectOmlMetadataHandler(req: Request, res: Response) {
   return createProjectOmlMetadataHandler(await dependencies())(req, res);
+}
+
+export async function publicProjectAttachmentDownloadHandler(req: Request, res: Response) {
+  return createPublicProjectAttachmentDownloadHandler(await dependencies())(req, res);
 }

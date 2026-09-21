@@ -38,4 +38,13 @@ describe('App Router API deployment bridge', () => {
     expect(source).toContain("second === 'dashboard'");
     expect(source).toContain("import('@/src/api/v1/home/dashboard')");
   });
+
+  it('routes public project attachment downloads through the deployed API bridge', () => {
+    const source = fs.readFileSync(routePath, 'utf8');
+
+    expect(source).toContain("first === 'public'");
+    expect(source).toContain("second === 'projects'");
+    expect(source).toContain("fourth === 'attachments'");
+    expect(source).toContain('publicProjectAttachmentDownloadHandler');
+  });
 });

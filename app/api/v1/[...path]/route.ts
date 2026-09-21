@@ -134,7 +134,7 @@ function serializeCookie(name: string, value: string, options: CookieOptions) {
 }
 
 function findRoute(method: string, segments: string[]): RouteMatch | null {
-  const [first, second, third, fourth] = segments;
+  const [first, second, third, fourth, fifth] = segments;
 
   if (method === 'GET' && first === 'health' && !second) {
     return {
@@ -303,6 +303,13 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
     };
   }
 
+  if (method === 'GET' && first === 'public' && second === 'projects' && third && fourth === 'attachments' && fifth) {
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'publicProjectAttachmentDownloadHandler'),
+      params: { id: third, attachmentId: fifth },
+    };
+  }
+
   if (method === 'GET' && first === 'public' && second === 'project' && third && !fourth) {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/public/project'), 'publicProjectHandler'),
@@ -340,6 +347,7 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
   const responseHeaders = new Headers({ 'content-type': 'application/json' });
   let statusCode = 200;
   let responseBody: unknown = null;
+  let rawResponse = false;
 
   const req = {
     body: await bodyObject(request),
@@ -358,10 +366,35 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
     },
     json(body: unknown) {
       responseBody = body;
+      rawResponse = false;
+      return this;
+    },
+    setHeader(name: string, value: string) {
+      responseHeaders.set(name, value);
+      return this;
+    },
+    header(name: string, value: string) {
+      responseHeaders.set(name, value);
+      return this;
+    },
+    set(name: string, value: string) {
+      responseHeaders.set(name, value);
       return this;
     },
     cookie(name: string, value: string, options: CookieOptions = {}) {
       responseHeaders.append('set-cookie', serializeCookie(name, value, options));
+      return this;
+    },
+    send(body: unknown) {
+      responseBody = body;
+      rawResponse = true;
+      return this;
+    },
+    end(body?: unknown) {
+      if (body !== undefined) {
+        responseBody = body;
+        rawResponse = true;
+      }
       return this;
     },
   };
@@ -373,7 +406,11 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
 
   await handler(req as never, res as never);
 
-  return new Response(JSON.stringify(responseBody), {
+  const body = rawResponse
+    ? (responseBody as BodyInit | null)
+    : JSON.stringify(responseBody);
+
+  return new Response(body, {
     status: statusCode,
     headers: responseHeaders,
   });
