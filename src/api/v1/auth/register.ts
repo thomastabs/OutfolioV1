@@ -119,7 +119,6 @@ export function createRegisterHandler(deps: RegisterDependencies) {
       });
 
       if (authResult.error || !authResult.data.user) {
-        console.error('[register] supabase admin.createUser failed', authResult.error);
         return res.status(500).json({
           error: 'unexpected_failure',
           message: 'Could not create the account.',
@@ -155,8 +154,7 @@ export function createRegisterHandler(deps: RegisterDependencies) {
         createdAt: user.createdAt.toISOString(),
         session,
       });
-    } catch (error) {
-      console.error('[register] unexpected failure', error);
+    } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
         message: 'Could not create the account.',

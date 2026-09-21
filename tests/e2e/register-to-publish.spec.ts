@@ -33,7 +33,12 @@ test('registers, logs in, creates and publishes a project, then views it publicl
     await page.getByLabel('Username', { exact: true }).fill(testUser.username);
     await page.getByLabel('Email', { exact: true }).fill(testUser.email);
     await page.getByLabel('Password', { exact: true }).fill(testUser.password);
-    await page.getByRole('button', { name: 'Create account' }).click();
+
+    const [registerResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/v1/auth/register') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Create account' }).click(),
+    ]);
+    expect(registerResponse.ok(), `register API response: ${await registerResponse.text()}`).toBeTruthy();
 
     await expect(page).toHaveURL('/profile');
     await expect(page.getByRole('heading', { name: 'Profile workspace' })).toBeVisible();
