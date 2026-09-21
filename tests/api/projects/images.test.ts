@@ -316,4 +316,73 @@ describe('project image gallery API', () => {
       message: 'Image not found.',
     });
   });
+
+  it('leaves the gallery unchanged after a failed delete of an already-removed image', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findFirst.mockResolvedValue(null);
+    prisma.projectImage.findMany.mockResolvedValue([secondImage]);
+    const deleteHandler = createProjectImageDeleteHandler(deps as never);
+    const listHandler = createProjectImageListHandler(deps as never);
+
+    const deleteRes = mockResponse();
+    await deleteHandler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, deleteRes as never);
+    expect(deleteRes.status).toHaveBeenCalledWith(404);
+
+    const listRes = mockResponse();
+    await listHandler({ headers: {}, params: { id: 'project-1' } } as never, listRes as never);
+    expect(listRes.json).toHaveBeenCalledWith({
+      images: [{ id: 'image-2', url: secondImage.url, order: 1 }],
+    });
+  });
+
+  it('forbids image deletion for non-owners', async () => {
+    const { deps, prisma } = setup({
+      prisma: {
+        project: { findUnique: jest.fn().mockResolvedValue({ id: 'project-1', ownerId: 'another-user' }) },
+      },
+    });
+    const handler = createProjectImageDeleteHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, res as never);
+
+    expect(prisma.projectImage.delete).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'not_owner' }));
+  });
+
+  it('rejects a reorder request that references an image id outside the project', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany.mockResolvedValue([firstImage, secondImage]);
+    const handler = createProjectImageOrderHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      body: { order: ['image-1', 'image-does-not-exist'] },
+    } as never, res as never);
+
+    expect(prisma.projectImage.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'image_not_found' }));
+  });
+
+  it('reorders successfully with exactly two images', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany
+      .mockResolvedValueOnce([firstImage, secondImage])
+      .mockResolvedValueOnce([secondImage, firstImage]);
+    const handler = createProjectImageOrderHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      body: { order: ['image-2', 'image-1'] },
+    } as never, res as never);
+
+    expect(prisma.projectImage.update).toHaveBeenCalledTimes(2);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
 });
