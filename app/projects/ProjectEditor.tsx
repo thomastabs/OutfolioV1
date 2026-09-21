@@ -149,6 +149,10 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   const [attachmentMessage, setAttachmentMessage] = useState('');
   const [attachmentError, setAttachmentError] = useState('');
   const [attachmentInputKey, setAttachmentInputKey] = useState(0);
+  const [selectedCoverImageFile, setSelectedCoverImageFile] = useState<File | null>(null);
+  const [coverImageFileMessage, setCoverImageFileMessage] = useState('');
+  const [coverImageFileError, setCoverImageFileError] = useState('');
+  const [coverImageInputKey, setCoverImageInputKey] = useState(0);
   const [projectImages, setProjectImages] = useState<ProjectImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(false);
   const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
@@ -174,6 +178,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setVisibility(nextState.visibility);
     setFieldErrors({});
     setMessage('');
+    setSelectedCoverImageFile(null);
+    setCoverImageFileMessage('');
+    setCoverImageFileError('');
   }, [project]);
 
   useEffect(() => {
@@ -269,6 +276,19 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     return errors;
   }
 
+  async function fileToDataUrl(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        resolve(typeof reader.result === 'string' ? reader.result : '');
+      });
+      reader.addEventListener('error', () => {
+        reject(new Error('Could not read the cover image file.'));
+      });
+      reader.readAsDataURL(file);
+    });
+  }
+
   function resetForm() {
     setTitle('');
     setSummary('');
@@ -283,9 +303,21 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setContribution('');
     setOutcome('');
     setVisibility('draft');
+    setSelectedCoverImageFile(null);
+    setCoverImageFileMessage('');
+    setCoverImageFileError('');
+    setCoverImageInputKey((key) => key + 1);
+    setSelectedImageFiles([]);
+    setImageError('');
+    setImageMessage('');
+    setImageInputKey((key) => key + 1);
+    setSelectedAttachmentFiles([]);
+    setAttachmentError('');
+    setAttachmentMessage('');
+    setAttachmentInputKey((key) => key + 1);
   }
 
-  function requestBody() {
+  function requestBody(nextCoverImageUrl = coverImageUrl) {
     return {
       title,
       summary,
@@ -293,7 +325,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       role,
       status,
       tags: tagsFromInput(tags),
-      coverImageUrl,
+      coverImageUrl: nextCoverImageUrl,
       problem,
       features,
       technicalNotes,
@@ -302,6 +334,42 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       visibility,
       publishedAt: project?.publishedAt ?? null,
     };
+  }
+
+  async function uploadImagesForProject(projectId: string, files: File[]) {
+    if (files.length === 0) return [] as ProjectImage[];
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    const response = await fetch(`/api/v1/projects/${projectId}/images`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json() as ImageResponse;
+
+    if (!response.ok) {
+      throw new Error(data.message ?? 'Could not upload project images.');
+    }
+
+    return Array.isArray(data.images) ? data.images : [];
+  }
+
+  async function uploadAttachmentsForProject(projectId: string, files: File[]) {
+    if (files.length === 0) return [] as ProjectAttachment[];
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    const response = await fetch(`/api/v1/projects/${projectId}/attachments`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json() as AttachmentResponse;
+
+    if (!response.ok) {
+      throw new Error(data.message ?? 'Could not upload the project attachments.');
+    }
+
+    return Array.isArray(data.attachments) ? data.attachments : [];
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -315,10 +383,11 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setIsSubmitting(true);
 
     try {
+      const uploadedCoverImageUrl = selectedCoverImageFile ? await fileToDataUrl(selectedCoverImageFile) : coverImageUrl;
       const response = await fetch(isEditMode ? `/api/v1/projects/${project?.id}` : '/api/v1/projects', {
         method: isEditMode ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody()),
+        body: JSON.stringify(requestBody(uploadedCoverImageUrl)),
       });
       const data = await response.json();
 
@@ -340,9 +409,48 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       if (isEditMode) {
         onProjectUpdated?.(data as ProjectData);
       } else {
-        onProjectCreated?.(data as ProjectSummary);
+        const createdProject = data as ProjectSummary;
+        let uploadedImages: ProjectImage[] = [];
+        let uploadedAttachments: ProjectAttachment[] = [];
+        const hasCreateMedia = Boolean(selectedCoverImageFile) || selectedImageFiles.length > 0 || selectedAttachmentFiles.length > 0;
+
+        try {
+          if (selectedImageFiles.length > 0) {
+            setImageError('');
+            setImageMessage('Uploading project images...');
+            uploadedImages = await uploadImagesForProject(createdProject.id, selectedImageFiles);
+            setProjectImages(uploadedImages);
+            setImageMessage('Project images uploaded.');
+          }
+
+          if (selectedAttachmentFiles.length > 0) {
+            setAttachmentError('');
+            setAttachmentMessage('Uploading project attachments...');
+            uploadedAttachments = await uploadAttachmentsForProject(createdProject.id, selectedAttachmentFiles);
+            setProjectAttachments(uploadedAttachments);
+            setAttachmentMessage(uploadedAttachments.some((attachment) => attachment.isOmlFile)
+              ? 'Project attachments were uploaded and .oml metadata was validated.'
+              : 'Project attachments were uploaded.');
+          }
+
+          onProjectCreated?.(hasCreateMedia
+            ? ({
+                ...createdProject,
+                coverImageUrl: uploadedCoverImageUrl,
+                images: uploadedImages,
+                attachments: uploadedAttachments,
+              } as ProjectSummary)
+            : createdProject);
+        } catch (uploadError) {
+          setMessage(uploadError instanceof Error ? uploadError.message : 'Project was created, but media uploads failed.');
+          return;
+        }
       }
-      setMessage(isEditMode ? 'Project saved.' : 'Project draft created.');
+      setMessage(isEditMode
+        ? 'Project saved.'
+        : (selectedCoverImageFile || selectedImageFiles.length > 0 || selectedAttachmentFiles.length > 0)
+          ? 'Project draft created with media.'
+          : 'Project draft created.');
       setFieldErrors({});
       if (!isEditMode) resetForm();
     } catch {
@@ -423,6 +531,28 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setAttachmentError('');
   }
 
+  function handleCoverImageFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const [file] = Array.from(event.target.files ?? []);
+    setCoverImageFileMessage('');
+
+    if (!file) {
+      setSelectedCoverImageFile(null);
+      setCoverImageFileError('');
+      return;
+    }
+
+    const validationError = validateImageFiles([file]);
+    if (validationError) {
+      setSelectedCoverImageFile(null);
+      setCoverImageFileError(validationError);
+      return;
+    }
+
+    setSelectedCoverImageFile(file);
+    setCoverImageFileError('');
+    setCoverImageFileMessage(`${file.name} will be uploaded as the project cover when the project is created.`);
+  }
+
   async function handleAttachmentUpload() {
     if (!project?.id || selectedAttachmentFiles.length === 0) return;
 
@@ -436,37 +566,17 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setAttachmentError('');
     setAttachmentMessage('Uploading project attachments...');
 
-    const formData = new FormData();
-    selectedAttachmentFiles.forEach((file) => formData.append('files', file));
-
     try {
-      const response = await fetch(`/api/v1/projects/${project.id}/attachments`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json() as AttachmentResponse;
-
-      if (!response.ok) {
-        setAttachmentMessage('');
-        setAttachmentError(
-          data.message ??
-          (data.error === 'invalid_oml_file'
-            ? 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.'
-            : 'Could not upload the project attachments.'),
-        );
-        return;
-      }
-
-      const uploaded = Array.isArray(data.attachments) ? data.attachments : [];
+      const uploaded = await uploadAttachmentsForProject(project.id, selectedAttachmentFiles);
       setProjectAttachments((current) => [...current, ...uploaded]);
       setSelectedAttachmentFiles([]);
       setAttachmentInputKey((key) => key + 1);
       setAttachmentMessage(uploaded.some((attachment) => attachment.isOmlFile)
         ? 'Project attachments were uploaded and .oml metadata was validated.'
         : 'Project attachments were uploaded.');
-    } catch {
+    } catch (error) {
       setAttachmentMessage('');
-      setAttachmentError('Could not upload the project attachments.');
+      setAttachmentError(error instanceof Error ? error.message : 'Could not upload the project attachments.');
     } finally {
       setIsUploadingAttachments(false);
     }
@@ -563,23 +673,9 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setImageError('');
     setImageMessage('Uploading project images...');
 
-    const formData = new FormData();
-    selectedImageFiles.forEach((file) => formData.append('files', file));
-
     try {
-      const response = await fetch(`/api/v1/projects/${project.id}/images`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json() as ImageResponse;
-
-      if (!response.ok) {
-        setImageMessage('');
-        setImageError(data.message ?? 'Could not upload project images.');
-        return;
-      }
-
-      setProjectImages(Array.isArray(data.images) ? data.images : projectImages);
+      const uploaded = await uploadImagesForProject(project.id, selectedImageFiles);
+      setProjectImages(uploaded.length > 0 ? uploaded : projectImages);
       setSelectedImageFiles([]);
       setImageInputKey((key) => key + 1);
       setImageMessage('Project images uploaded.');
@@ -717,6 +813,29 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         {fieldErrors.coverImageUrl ? (
           <ValidationMessage id="project-cover-error" message={fieldErrors.coverImageUrl} />
         ) : null}
+        {!isEditMode ? (
+          <div className="mt-2 grid gap-2 rounded-lg border border-dashed border-border bg-background/80 p-3">
+            <label className="text-sm font-semibold" htmlFor="project-cover-image-file">Upload cover image</label>
+            <input
+              key={coverImageInputKey}
+              id="project-cover-image-file"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              onChange={handleCoverImageFileChange}
+              aria-describedby={coverImageFileError ? 'project-cover-image-file-error' : coverImageFileMessage ? 'project-cover-image-file-message' : undefined}
+              aria-invalid={coverImageFileError ? 'true' : undefined}
+            />
+            {coverImageFileError ? (
+              <ValidationMessage id="project-cover-image-file-error" message={coverImageFileError} />
+            ) : null}
+            {coverImageFileMessage && !coverImageFileError ? (
+              <p id="project-cover-image-file-message" className="text-xs font-medium text-muted-foreground" role="status">
+                {coverImageFileMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="grid gap-2 md:col-span-2 xl:col-span-3">
         <label className="text-sm font-semibold" htmlFor="project-problem">Problem</label>
@@ -762,43 +881,45 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           <Badge className="w-fit rounded-full" variant="success">{project.publishedAt}</Badge>
         </div>
       ) : null}
-      {isEditMode ? (
-        <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-image-gallery-heading">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 id="project-image-gallery-heading" className="flex items-center gap-2 text-base font-semibold">
-                <ImagePlus className="h-4 w-4 text-primary" aria-hidden="true" />
-                Project image gallery
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add screenshots or visual evidence that helps the case study read like a real portfolio piece.
+      <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-image-gallery-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 id="project-image-gallery-heading" className="flex items-center gap-2 text-base font-semibold">
+              <ImagePlus className="h-4 w-4 text-primary" aria-hidden="true" />
+              Project image gallery
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isEditMode
+                ? 'Add screenshots or visual evidence that helps the case study read like a real portfolio piece.'
+                : 'Select screenshots now and they will be attached as soon as the project is created.'}
+            </p>
+          </div>
+          {isLoadingImages ? (
+            <Badge className="w-fit rounded-full" variant="secondary">Loading images...</Badge>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="grid gap-2">
+            <label className="text-sm font-semibold" htmlFor="project-image-files">Image files</label>
+            <input
+              key={imageInputKey}
+              id="project-image-files"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              onChange={handleImageFileChange}
+              aria-describedby={imageError ? 'project-images-error' : undefined}
+              aria-invalid={imageError ? 'true' : undefined}
+            />
+            {selectedImageFiles.length > 0 ? (
+              <p className="text-xs font-medium text-muted-foreground">
+                Selected {selectedImageFiles.length} image{selectedImageFiles.length === 1 ? '' : 's'} ({selectedImageFiles.map((file) => file.name).join(', ')})
               </p>
-            </div>
-            {isLoadingImages ? (
-              <Badge className="w-fit rounded-full" variant="secondary">Loading images...</Badge>
             ) : null}
           </div>
-
-          <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="grid gap-2">
-              <label className="text-sm font-semibold" htmlFor="project-image-files">Image files</label>
-              <input
-                key={imageInputKey}
-                id="project-image-files"
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                onChange={handleImageFileChange}
-                aria-describedby={imageError ? 'project-images-error' : undefined}
-                aria-invalid={imageError ? 'true' : undefined}
-              />
-              {selectedImageFiles.length > 0 ? (
-                <p className="text-xs font-medium text-muted-foreground">
-                  Selected {selectedImageFiles.length} image{selectedImageFiles.length === 1 ? '' : 's'} ({selectedImageFiles.map((file) => file.name).join(', ')})
-                </p>
-              ) : null}
-            </div>
+          {isEditMode ? (
             <Button
               type="button"
               onClick={handleImageUpload}
@@ -808,17 +929,23 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
               <Upload className="h-4 w-4" aria-hidden="true" />
               {isUploadingImages ? 'Uploading...' : 'Upload images'}
             </Button>
-          </div>
+          ) : (
+            <Badge className="w-full justify-center rounded-full sm:w-auto" variant="secondary">
+              Included on create
+            </Badge>
+          )}
+        </div>
 
-          <div className="mt-3" aria-live="polite">
-            {imageError ? <ValidationMessage id="project-images-error" message={imageError} /> : null}
-            {imageMessage && !imageError ? (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
-                {imageMessage}
-              </p>
-            ) : null}
-          </div>
+        <div className="mt-3" aria-live="polite">
+          {imageError ? <ValidationMessage id="project-images-error" message={imageError} /> : null}
+          {imageMessage && !imageError ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
+              {imageMessage}
+            </p>
+          ) : null}
+        </div>
 
+        {isEditMode ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {projectImages.length === 0 && !isLoadingImages ? (
               <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
@@ -871,45 +998,47 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
-      {isEditMode ? (
-        <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-attachments-heading">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 id="project-attachments-heading" className="flex items-center gap-2 text-base font-semibold">
-                <FileArchive className="h-4 w-4 text-primary" aria-hidden="true" />
-                Project attachments
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Upload supporting files such as .oml exports, PDFs, notes, Markdown docs, or ZIP archives.
+        ) : null}
+      </section>
+      <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-attachments-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 id="project-attachments-heading" className="flex items-center gap-2 text-base font-semibold">
+              <FileArchive className="h-4 w-4 text-primary" aria-hidden="true" />
+              Project attachments
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isEditMode
+                ? 'Upload supporting files such as .oml exports, PDFs, notes, Markdown docs, or ZIP archives.'
+                : 'Select .oml exports, PDFs, notes, Markdown docs, or ZIP archives to attach during creation.'}
+            </p>
+          </div>
+          {isLoadingAttachments ? (
+            <Badge className="w-fit rounded-full" variant="secondary">Loading attachments...</Badge>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="grid gap-2">
+            <label className="text-sm font-semibold" htmlFor="project-attachment-files">Attachment files</label>
+            <input
+              key={attachmentInputKey}
+              id="project-attachment-files"
+              type="file"
+              accept={ATTACHMENT_ACCEPT}
+              multiple
+              className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              onChange={handleAttachmentFileChange}
+              aria-describedby={attachmentError ? 'project-attachments-error' : undefined}
+              aria-invalid={attachmentError ? 'true' : undefined}
+            />
+            {selectedAttachmentFiles.length > 0 ? (
+              <p className="text-xs font-medium text-muted-foreground">
+                Selected {selectedAttachmentFiles.map((file) => `${file.name} (${formatFileSize(file.size)})`).join(', ')}
               </p>
-            </div>
-            {isLoadingAttachments ? (
-              <Badge className="w-fit rounded-full" variant="secondary">Loading attachments...</Badge>
             ) : null}
           </div>
-
-          <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="grid gap-2">
-              <label className="text-sm font-semibold" htmlFor="project-attachment-files">Attachment files</label>
-              <input
-                key={attachmentInputKey}
-                id="project-attachment-files"
-                type="file"
-                accept={ATTACHMENT_ACCEPT}
-                multiple
-                className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                onChange={handleAttachmentFileChange}
-                aria-describedby={attachmentError ? 'project-attachments-error' : undefined}
-                aria-invalid={attachmentError ? 'true' : undefined}
-              />
-              {selectedAttachmentFiles.length > 0 ? (
-                <p className="text-xs font-medium text-muted-foreground">
-                  Selected {selectedAttachmentFiles.map((file) => `${file.name} (${formatFileSize(file.size)})`).join(', ')}
-                </p>
-              ) : null}
-            </div>
+          {isEditMode ? (
             <Button
               type="button"
               onClick={handleAttachmentUpload}
@@ -919,17 +1048,23 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
               <Upload className="h-4 w-4" aria-hidden="true" />
               {isUploadingAttachments ? 'Uploading...' : 'Upload attachments'}
             </Button>
-          </div>
+          ) : (
+            <Badge className="w-full justify-center rounded-full sm:w-auto" variant="secondary">
+              Included on create
+            </Badge>
+          )}
+        </div>
 
-          <div className="mt-3" aria-live="polite">
-            {attachmentError ? <ValidationMessage id="project-attachments-error" message={attachmentError} /> : null}
-            {attachmentMessage && !attachmentError ? (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
-                {attachmentMessage}
-              </p>
-            ) : null}
-          </div>
+        <div className="mt-3" aria-live="polite">
+          {attachmentError ? <ValidationMessage id="project-attachments-error" message={attachmentError} /> : null}
+          {attachmentMessage && !attachmentError ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
+              {attachmentMessage}
+            </p>
+          ) : null}
+        </div>
 
+        {isEditMode ? (
           <div className="mt-4 grid gap-3">
             {projectAttachments.length === 0 && !isLoadingAttachments ? (
               <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
@@ -993,8 +1128,8 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : null}
+      </section>
       <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
         {message ? (
         message.includes('could not') || message.includes('Choose') ? (
@@ -1005,7 +1140,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       ) : null}
       </div>
       <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting || Boolean(imageError) || Boolean(attachmentError) || Boolean(coverImageFileError)}>
         <Save className="h-4 w-4" aria-hidden="true" />
         {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save project' : 'Create project')}
       </Button>

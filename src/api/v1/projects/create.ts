@@ -1,9 +1,40 @@
+import crypto from 'node:crypto';
+import path from 'node:path';
 import type { Request, Response } from 'express';
+import { extractOmlMetadata } from './attachments';
 
 type ProjectVisibility = 'DRAFT' | 'PUBLISHED' | 'UNPUBLISHED';
 
+const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MAX_ATTACHMENT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const OML_MIME_TYPES = new Set([
+  '',
+  'application/octet-stream',
+  'application/zip',
+  'application/x-zip-compressed',
+  'text/xml',
+  'application/xml',
+]);
+const SUPPORTED_ATTACHMENT_TYPES = {
+  '.oml': OML_MIME_TYPES,
+  '.pdf': new Set(['application/pdf']),
+  '.txt': new Set(['', 'text/plain']),
+  '.md': new Set(['', 'text/markdown', 'text/plain']),
+  '.zip': new Set(['application/octet-stream', 'application/zip', 'application/x-zip-compressed']),
+} as const;
+
+type UploadedFile = {
+  fieldname?: string;
+  originalname: string;
+  mimetype?: string;
+  size: number;
+  buffer: Buffer;
+};
+
 type ProjectRecord = {
   id: string;
+  ownerId?: string;
   title: string;
   slug: string;
   summary: string;
@@ -21,17 +52,73 @@ type ProjectRecord = {
   publishedAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  images?: ProjectImageRecord[];
+  attachments?: AttachmentRecord[];
+};
+
+type ProjectImageRecord = {
+  id: string;
+  projectId: string;
+  url: string;
+  order?: number | null;
+};
+
+type OmlMetadataRecord = {
+  moduleName: string;
+  version: string;
+};
+
+type AttachmentRecord = {
+  id: string;
+  projectId: string;
+  filename: string;
+  url: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+  isOmlFile?: boolean | null;
+  order?: number | null;
+  omlMetadata?: OmlMetadataRecord | null;
 };
 
 type ProjectDependencies = {
   prisma: {
     project: {
       findFirst?(args: { where: { ownerId: string; slug: string } }): Promise<unknown | null>;
-      create?(args: { data: Record<string, unknown> }): Promise<ProjectRecord>;
+      create?(args: { data: Record<string, unknown>; include?: { images?: { orderBy: { order: 'asc' } }; attachments?: { include: { omlMetadata: true }; orderBy: { order: 'asc' } } } }): Promise<ProjectRecord>;
       findMany?(args: { where: { ownerId: string }; orderBy: { updatedAt: 'desc' } }): Promise<ProjectRecord[]>;
+    };
+    projectImage?: {
+      create(args: { data: { id: string; projectId: string; url: string; order: number } }): Promise<ProjectImageRecord>;
+    };
+    projectAttachment?: {
+      create(args: {
+        data: {
+          id: string;
+          projectId: string;
+          filename: string;
+          url: string;
+          fileType: string;
+          fileSize: number;
+          isOmlFile: boolean;
+          order: number;
+        };
+        include?: { omlMetadata: true };
+      }): Promise<AttachmentRecord>;
+    };
+    omlMetadata?: {
+      upsert(args: {
+        where: { attachmentId: string };
+        update: OmlMetadataRecord;
+        create: OmlMetadataRecord & { attachmentId: string };
+      }): Promise<OmlMetadataRecord>;
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+};
+
+type ProjectPersistence = ProjectDependencies['prisma'];
+type TransactionCapablePersistence = ProjectPersistence & {
+  $transaction?<T>(callback: (tx: ProjectPersistence) => Promise<T>): Promise<T>;
 };
 
 type ProjectInput = {
@@ -48,6 +135,22 @@ type ProjectInput = {
   contribution?: unknown;
   outcome?: unknown;
   visibility?: unknown;
+};
+
+type ParsedProjectData = {
+  title: string;
+  summary: string;
+  role: string;
+  projectType: string;
+  status: string;
+  tags: string[];
+  coverImageUrl: string;
+  problem: string;
+  features: string;
+  technicalNotes: string;
+  contribution: string;
+  outcome: string;
+  visibility: ProjectVisibility;
 };
 
 export function slugifyProjectTitle(title: string) {
@@ -111,7 +214,254 @@ function serializeProject(project: ProjectRecord) {
     publishedAt: project.publishedAt,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
+    images: (project.images ?? []).map((image) => ({
+      id: image.id,
+      url: image.url,
+      order: image.order ?? 0,
+    })),
+    attachments: (project.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      filename: attachment.filename,
+      url: attachment.url,
+      fileType: attachment.fileType ?? '',
+      fileSize: attachment.fileSize ?? 0,
+      isOmlFile: Boolean(attachment.isOmlFile),
+      order: attachment.order ?? 0,
+      metadata: attachment.omlMetadata
+        ? {
+            moduleName: attachment.omlMetadata.moduleName,
+            version: attachment.omlMetadata.version,
+          }
+        : null,
+    })),
   };
+}
+
+function filesFrom(req: Request) {
+  const files = (req as Request & { files?: UploadedFile[] }).files;
+  return Array.isArray(files) ? files : [];
+}
+
+function filesByField(req: Request, names: string[]) {
+  const fields = new Set(names);
+  return filesFrom(req).filter((file) => fields.has(file.fieldname ?? ''));
+}
+
+function storedImageUrl(file: UploadedFile) {
+  const mimeType = file.mimetype || 'application/octet-stream';
+  return `data:${mimeType};base64,${file.buffer.toString('base64')}`;
+}
+
+function baseName(filename: string) {
+  return path.basename(filename).replace(/[^\w.\- ]/g, '_');
+}
+
+function attachmentExtension(filename: string) {
+  return path.extname(filename).toLowerCase() as keyof typeof SUPPORTED_ATTACHMENT_TYPES;
+}
+
+function storedAttachmentUrl(projectId: string, attachmentId: string, filename: string) {
+  return `/api/v1/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(attachmentId)}/download?filename=${encodeURIComponent(filename)}`;
+}
+
+function validateImageFile(file: UploadedFile) {
+  if (!IMAGE_MIME_TYPES.has(file.mimetype ?? '')) {
+    return {
+      status: 415,
+      body: {
+        error: 'unsupported_media_type',
+        message: 'Only JPEG, PNG, GIF, or WebP images can be uploaded.',
+      },
+    };
+  }
+
+  if (file.size > MAX_IMAGE_FILE_SIZE_BYTES) {
+    return {
+      status: 413,
+      body: {
+        error: 'payload_too_large',
+        message: 'Images must be 10 MiB or smaller.',
+      },
+    };
+  }
+
+  if (!file.buffer || file.buffer.length === 0) {
+    return {
+      status: 422,
+      body: {
+        error: 'invalid_image_file',
+        message: 'The uploaded image file is empty or invalid.',
+      },
+    };
+  }
+
+  return { status: 200, body: null };
+}
+
+function validateAttachmentFile(file: UploadedFile) {
+  const filename = baseName(file.originalname);
+  const extension = attachmentExtension(filename);
+  const supportedMimeTypes = SUPPORTED_ATTACHMENT_TYPES[extension];
+
+  if (!supportedMimeTypes) {
+    return {
+      status: 415,
+      body: {
+        error: 'unsupported_media_type',
+        message: 'Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.',
+      },
+    };
+  }
+
+  if (!supportedMimeTypes.has(file.mimetype ?? '')) {
+    return {
+      status: 415,
+      body: {
+        error: 'unsupported_media_type',
+        message: `The ${extension} file type is not supported.`,
+      },
+    };
+  }
+
+  if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+    return {
+      status: 413,
+      body: {
+        error: 'payload_too_large',
+        message: 'Attachments must be 50 MiB or smaller.',
+      },
+    };
+  }
+
+  if (extension !== '.oml') {
+    return { status: 200, body: null };
+  }
+
+  const metadata = extractOmlMetadata(file, filename);
+  if (!metadata) {
+    return {
+      status: 422,
+      body: {
+        error: 'invalid_oml_file',
+        message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+      },
+    };
+  }
+
+  return { status: 200, body: metadata };
+}
+
+function validateProjectMedia(req: Request) {
+  const coverImages = filesByField(req, ['coverImage', 'coverImageFile']);
+  const galleryImages = filesByField(req, ['images', 'galleryImages', 'imageFiles']);
+  const attachments = filesByField(req, ['attachments', 'attachmentFiles']);
+
+  for (const file of [...coverImages, ...galleryImages]) {
+    const validation = validateImageFile(file);
+    if (validation.status !== 200) return validation;
+  }
+
+  for (const file of attachments) {
+    const validation = validateAttachmentFile(file);
+    if (validation.status !== 200) return validation;
+  }
+
+  return {
+    status: 200,
+    body: {
+      coverImage: coverImages[0] ?? null,
+      galleryImages,
+      attachments,
+    },
+  };
+}
+
+async function createProjectWithMedia(
+  deps: ProjectDependencies,
+  session: { userId: string },
+  data: ParsedProjectData,
+  slug: string,
+  media: {
+    coverImage: UploadedFile | null;
+    galleryImages: UploadedFile[];
+    attachments: UploadedFile[];
+  },
+) {
+  const create = async (tx: ProjectPersistence) => {
+    const coverImageUrl = media.coverImage ? storedImageUrl(media.coverImage) : data.coverImageUrl;
+    const project = await tx.project.create?.({
+      data: {
+        ownerId: session.userId,
+        ...data,
+        coverImageUrl,
+        slug,
+        visibility: 'DRAFT',
+        publishedAt: null,
+      },
+    });
+
+    const projectId = (project as ProjectRecord).id;
+    const images: ProjectImageRecord[] = [];
+    for (const [order, file] of media.galleryImages.entries()) {
+      const image = await tx.projectImage?.create({
+        data: {
+          id: crypto.randomUUID(),
+          projectId,
+          url: storedImageUrl(file),
+          order,
+        },
+      });
+      if (image) images.push(image);
+    }
+
+    const attachments: AttachmentRecord[] = [];
+    for (const [order, file] of media.attachments.entries()) {
+      const filename = baseName(file.originalname);
+      const extension = attachmentExtension(filename);
+      const isOmlFile = extension === '.oml';
+      const metadata = validateAttachmentFile(file).body as OmlMetadataRecord | null;
+      const id = crypto.randomUUID();
+      const attachment = await tx.projectAttachment?.create({
+        data: {
+          id,
+          projectId,
+          filename,
+          url: storedAttachmentUrl(projectId, id, filename),
+          fileType: file.mimetype ?? 'application/octet-stream',
+          fileSize: file.size,
+          isOmlFile,
+          order,
+        },
+        include: { omlMetadata: true },
+      });
+
+      if (attachment && isOmlFile && metadata) {
+        await tx.omlMetadata?.upsert({
+          where: { attachmentId: attachment.id },
+          update: metadata,
+          create: { attachmentId: attachment.id, ...metadata },
+        });
+      }
+
+      if (attachment) attachments.push({ ...attachment, omlMetadata: metadata });
+    }
+
+    return {
+      ...(project as ProjectRecord),
+      coverImageUrl,
+      images,
+      attachments,
+    };
+  };
+
+  if (media.coverImage || media.galleryImages.length > 0 || media.attachments.length > 0) {
+    const transaction = (deps.prisma as TransactionCapablePersistence).$transaction;
+    if (typeof transaction === 'function') {
+      return transaction.call(deps.prisma, create);
+    }
+  }
+
+  return create(deps.prisma);
 }
 
 function parseProjectInput(body: ProjectInput) {
@@ -177,15 +527,22 @@ export function createProjectHandler(deps: ProjectDependencies) {
         });
       }
 
-      const project = await deps.prisma.project.create?.({
-        data: {
-          ownerId: session.userId,
-          ...parsed.data,
-          slug,
-          visibility: 'DRAFT',
-          publishedAt: null,
+      const mediaValidation = validateProjectMedia(req);
+      if (mediaValidation.status !== 200) {
+        return res.status(mediaValidation.status).json(mediaValidation.body);
+      }
+
+      const project = await createProjectWithMedia(
+        deps,
+        session,
+        parsed.data,
+        slug,
+        mediaValidation.body as {
+          coverImage: UploadedFile | null;
+          galleryImages: UploadedFile[];
+          attachments: UploadedFile[];
         },
-      });
+      );
 
       return res.status(200).json(serializeProject(project as ProjectRecord));
     } catch {
@@ -228,7 +585,7 @@ export async function projectCreateHandler(req: Request, res: Response) {
     import('@/src/lib/session'),
   ]);
 
-  return createProjectHandler({ prisma, validateSession })(req, res);
+  return createProjectHandler({ prisma: prisma as unknown as ProjectDependencies['prisma'], validateSession })(req, res);
 }
 
 export async function projectListHandler(req: Request, res: Response) {
@@ -237,5 +594,5 @@ export async function projectListHandler(req: Request, res: Response) {
     import('@/src/lib/session'),
   ]);
 
-  return createProjectListHandler({ prisma, validateSession })(req, res);
+  return createProjectListHandler({ prisma: prisma as unknown as ProjectDependencies['prisma'], validateSession })(req, res);
 }

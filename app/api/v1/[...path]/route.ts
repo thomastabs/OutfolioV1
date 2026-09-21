@@ -121,6 +121,50 @@ async function multipartFiles(request: NextRequest): Promise<UploadedFile[] | un
   }
 }
 
+async function requestPayload(request: NextRequest) {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return { body: undefined, files: undefined };
+  }
+
+  const contentType = request.headers.get('content-type') ?? '';
+  if (contentType.includes('multipart/form-data')) {
+    try {
+      const formData = await request.formData();
+      const body: Record<string, string | string[]> = {};
+      const files: UploadedFile[] = [];
+
+      for (const [fieldname, value] of formData.entries()) {
+        if (typeof value === 'string') {
+          const existing = body[fieldname];
+          if (Array.isArray(existing)) {
+            existing.push(value);
+          } else if (typeof existing === 'string') {
+            body[fieldname] = [existing, value];
+          } else {
+            body[fieldname] = value;
+          }
+          continue;
+        }
+
+        const buffer = Buffer.from(await value.arrayBuffer());
+        files.push({
+          fieldname,
+          originalname: value.name,
+          mimetype: value.type || 'application/octet-stream',
+          size: value.size,
+          buffer,
+        });
+      }
+
+      return { body, files };
+    } catch {
+      return { body: undefined, files: undefined };
+    }
+  }
+
+  return { body: await bodyObject(request), files: undefined };
+}
+
 function serializeCookie(name: string, value: string, options: CookieOptions) {
   const parts = [`${name}=${encodeURIComponent(value)}`];
 
@@ -362,9 +406,10 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
   let responseBody: unknown = null;
   let rawResponse = false;
 
+  const payload = await requestPayload(request);
   const req = {
-    body: await bodyObject(request),
-    files: await multipartFiles(request),
+    body: payload.body,
+    files: payload.files,
     headers: {
       cookie: request.headers.get('cookie') ?? '',
     },
