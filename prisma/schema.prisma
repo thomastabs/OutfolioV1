@@ -56,8 +56,19 @@ model Project {
   updatedAt      DateTime          @updatedAt
   owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   attachments    ProjectAttachment[]
+  images         ProjectImage[]
 
   @@unique([ownerId, slug])
+}
+
+model ProjectImage {
+  id        String   @id @default(cuid())
+  projectId String
+  url       String
+  order     Int      @default(0)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 model ProjectAttachment {

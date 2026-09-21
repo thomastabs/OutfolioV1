@@ -414,4 +414,188 @@ describe('ProjectEditor', () => {
     expect(await screen.findByText('The .oml attachment was deleted.')).toBeInTheDocument();
     expect(screen.queryByText('orders-portal.oml')).not.toBeInTheDocument();
   });
+
+  it('uploads multiple valid images and displays them in the project gallery', async () => {
+    const user = userEvent.setup();
+    const images = [
+      { id: 'image-1', url: 'data:image/png;base64,ZmFrZQ==', order: 0 },
+      { id: 'image-2', url: 'data:image/jpeg;base64,ZmFrZQ==', order: 1 },
+    ];
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images' && init?.method === 'POST') {
+        expect(init.body).toBeInstanceOf(FormData);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/image files/i), [
+      new File(['image-one'], 'screen.png', { type: 'image/png' }),
+      new File(['image-two'], 'flow.jpg', { type: 'image/jpeg' }),
+    ]);
+    await user.click(screen.getByRole('button', { name: /upload images/i }));
+
+    expect(await screen.findByText('Project images uploaded.')).toBeInTheDocument();
+    expect(screen.getByAltText('Project gallery image 1')).toBeInTheDocument();
+    expect(screen.getByAltText('Project gallery image 2')).toBeInTheDocument();
+  });
+
+  it('prevents unsupported image types before upload', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/image files/i), new File(['not-image'], 'notes.txt', { type: 'text/plain' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only JPEG, PNG, GIF, or WebP images can be uploaded.');
+    expect(screen.getByRole('button', { name: /upload images/i })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/images', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('prevents oversized images before upload', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+    const oversizedImage = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/image files/i), oversizedImage);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Images must be 10 MiB or smaller.');
+    expect(screen.getByRole('button', { name: /upload images/i })).toBeDisabled();
+  });
+
+  it('deletes and reorders project gallery images', async () => {
+    const user = userEvent.setup();
+    const firstImage = { id: 'image-1', url: 'data:image/png;base64,ZmFrZQ==', order: 0 };
+    const secondImage = { id: 'image-2', url: 'data:image/jpeg;base64,ZmFrZQ==', order: 1 };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [firstImage, secondImage] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images/order' && init?.method === 'PUT') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [secondImage, firstImage] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images/image-1' && init?.method === 'DELETE') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    expect(await screen.findByAltText('Project gallery image 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /move image 1 up/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /move image 2 down/i })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /move image 2 up/i }));
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/images/order', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: ['image-2', 'image-1'] }),
+    });
+
+    await user.click(screen.getByRole('button', { name: /delete image 2/i }));
+    expect(await screen.findByText('Project image deleted.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete image 2/i })).not.toBeInTheDocument();
+  });
 });

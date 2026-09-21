@@ -255,6 +255,33 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
     }
   }
 
+  if (first === 'projects' && second && third === 'images') {
+    if (method === 'GET' && !fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageListHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'POST' && !fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageUploadHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'PUT' && fourth === 'order') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageOrderHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'DELETE' && fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageDeleteHandler'),
+        params: { id: second, imageId: fourth },
+      };
+    }
+  }
+
   if (method === 'POST' && first === 'projects' && second && third === 'publish' && !fourth) {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/projects/publish'), 'projectPublishHandler'),

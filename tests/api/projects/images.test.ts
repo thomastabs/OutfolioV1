@@ -1,0 +1,200 @@
+import {
+  createProjectImageDeleteHandler,
+  createProjectImageListHandler,
+  createProjectImageOrderHandler,
+  createProjectImageUploadHandler,
+} from '@/src/api/v1/projects/images';
+
+function mockResponse() {
+  return {
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn().mockReturnThis(),
+  };
+}
+
+function imageFile(overrides: Partial<{ originalname: string; mimetype: string; size: number; buffer: Buffer }> = {}) {
+  const buffer = overrides.buffer ?? Buffer.from('fake image bytes');
+  return {
+    originalname: overrides.originalname ?? 'screen.png',
+    mimetype: overrides.mimetype ?? 'image/png',
+    size: overrides.size ?? buffer.length,
+    buffer,
+  };
+}
+
+describe('project image gallery API', () => {
+  const project = { id: 'project-1', ownerId: 'user-1' };
+  const firstImage = {
+    id: 'image-1',
+    projectId: 'project-1',
+    url: 'data:image/png;base64,ZmFrZQ==',
+    order: 0,
+  };
+  const secondImage = {
+    id: 'image-2',
+    projectId: 'project-1',
+    url: 'data:image/jpeg;base64,ZmFrZQ==',
+    order: 1,
+  };
+
+  function setup(overrides: Record<string, unknown> = {}) {
+    const prisma = {
+      project: {
+        findUnique: jest.fn().mockResolvedValue(project),
+      },
+      projectImage: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(firstImage),
+        create: jest.fn().mockImplementation(async ({ data }) => ({ ...data })),
+        delete: jest.fn().mockResolvedValue(firstImage),
+        update: jest.fn().mockResolvedValue(firstImage),
+      },
+    };
+    const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
+    return { deps: { prisma, validateSession, ...overrides }, prisma, validateSession };
+  }
+
+  it('uploads multiple valid images and returns the updated image list', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([firstImage, secondImage]);
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      files: [
+        imageFile({ originalname: 'screen.png', mimetype: 'image/png' }),
+        imageFile({ originalname: 'flow.jpg', mimetype: 'image/jpeg' }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).toHaveBeenCalledTimes(2);
+    expect(prisma.projectImage.create).toHaveBeenNthCalledWith(1, {
+      data: expect.objectContaining({
+        projectId: 'project-1',
+        url: expect.stringMatching(/^data:image\/png;base64,/),
+        order: 0,
+      }),
+    });
+    expect(prisma.projectImage.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        projectId: 'project-1',
+        url: expect.stringMatching(/^data:image\/jpeg;base64,/),
+        order: 1,
+      }),
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      images: [
+        { id: 'image-1', url: firstImage.url, order: 0 },
+        { id: 'image-2', url: secondImage.url, order: 1 },
+      ],
+    });
+  });
+
+  it('rejects unsupported image file types', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ originalname: 'notes.txt', mimetype: 'text/plain' })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+  });
+
+  it('rejects oversized image uploads', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ size: 10 * 1024 * 1024 + 1 })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(413);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'payload_too_large' }));
+  });
+
+  it('requires a valid authenticated session', async () => {
+    const { deps } = setup({
+      validateSession: jest.fn().mockReturnValue({ valid: false, reason: 'missing_session' }),
+    });
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1' }, files: [imageFile()] } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'missing_or_invalid_auth' }));
+  });
+
+  it('forbids image management for non-owners', async () => {
+    const { deps } = setup({
+      prisma: {
+        project: { findUnique: jest.fn().mockResolvedValue({ id: 'project-1', ownerId: 'another-user' }) },
+      },
+    });
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1' }, files: [imageFile()] } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'not_owner' }));
+  });
+
+  it('lists, deletes, and reorders owned project images', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany.mockResolvedValue([firstImage, secondImage]);
+    const listHandler = createProjectImageListHandler(deps as never);
+    const orderHandler = createProjectImageOrderHandler(deps as never);
+    const deleteHandler = createProjectImageDeleteHandler(deps as never);
+
+    const listRes = mockResponse();
+    await listHandler({ headers: {}, params: { id: 'project-1' } } as never, listRes as never);
+    expect(listRes.status).toHaveBeenCalledWith(200);
+    expect(listRes.json).toHaveBeenCalledWith({
+      images: [
+        { id: 'image-1', url: firstImage.url, order: 0 },
+        { id: 'image-2', url: secondImage.url, order: 1 },
+      ],
+    });
+
+    const orderRes = mockResponse();
+    await orderHandler({
+      headers: {},
+      params: { id: 'project-1' },
+      body: { order: ['image-2', 'image-1'] },
+    } as never, orderRes as never);
+    expect(prisma.projectImage.update).toHaveBeenCalledWith({ where: { id: 'image-2' }, data: { order: 0 } });
+    expect(prisma.projectImage.update).toHaveBeenCalledWith({ where: { id: 'image-1' }, data: { order: 1 } });
+
+    const deleteRes = mockResponse();
+    await deleteHandler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, deleteRes as never);
+    expect(prisma.projectImage.delete).toHaveBeenCalledWith({ where: { id: 'image-1' } });
+    expect(deleteRes.json).toHaveBeenCalledWith({ success: true });
+  });
+
+  it('rejects malformed image order input', async () => {
+    const { deps } = setup();
+    const handler = createProjectImageOrderHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1' }, body: { order: 'image-1' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'validation_error' }));
+  });
+});

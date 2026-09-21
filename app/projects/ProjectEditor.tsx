@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, EyeOff, FileArchive, Save, Send, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, EyeOff, FileArchive, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
 import { ValidationMessage } from '../components/ValidationMessage';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -46,6 +46,18 @@ type AttachmentResponse = {
   message?: string;
 };
 
+type ProjectImage = {
+  id: string;
+  url: string;
+  order?: number;
+};
+
+type ImageResponse = {
+  images?: ProjectImage[];
+  error?: string;
+  message?: string;
+};
+
 type FieldErrors = Partial<Record<
   | 'title'
   | 'summary'
@@ -57,6 +69,9 @@ type FieldErrors = Partial<Record<
   | 'publishedAt',
   string
 >>;
+
+const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
 function initialState(project?: ProjectData) {
   return {
@@ -123,6 +138,13 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   const [attachmentMessage, setAttachmentMessage] = useState('');
   const [attachmentError, setAttachmentError] = useState('');
   const [omlInputKey, setOmlInputKey] = useState(0);
+  const [projectImages, setProjectImages] = useState<ProjectImage[]>([]);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [imageMessage, setImageMessage] = useState('');
+  const [imageError, setImageError] = useState('');
+  const [imageInputKey, setImageInputKey] = useState(0);
 
   useEffect(() => {
     const nextState = initialState(project);
@@ -177,6 +199,47 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       setAttachmentError('');
       setAttachmentMessage('');
       setIsLoadingAttachments(false);
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [project?.id]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadImages(projectId: string) {
+      setIsLoadingImages(true);
+      setImageError('');
+      setImageMessage('');
+
+      try {
+        const response = await fetch(`/api/v1/projects/${projectId}/images`);
+        if (!response?.ok) return;
+        const data = await response.json() as ImageResponse;
+        if (!ignore) {
+          setProjectImages(Array.isArray(data.images) ? data.images : []);
+        }
+      } catch {
+        if (!ignore) {
+          setImageError('Could not load project images.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingImages(false);
+        }
+      }
+    }
+
+    if (project?.id) {
+      loadImages(project.id);
+    } else {
+      setProjectImages([]);
+      setSelectedImageFiles([]);
+      setImageError('');
+      setImageMessage('');
+      setIsLoadingImages(false);
     }
 
     return () => {
@@ -409,6 +472,129 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     persistAttachmentOrder(nextAttachments);
   }
 
+  function validateImageFiles(files: File[]) {
+    const unsupported = files.find((file) => !IMAGE_MIME_TYPES.has(file.type));
+    if (unsupported) {
+      return 'Only JPEG, PNG, GIF, or WebP images can be uploaded.';
+    }
+
+    const oversized = files.find((file) => file.size > MAX_IMAGE_FILE_SIZE_BYTES);
+    if (oversized) {
+      return 'Images must be 10 MiB or smaller.';
+    }
+
+    return '';
+  }
+
+  function handleImageFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    setImageMessage('');
+
+    const validationError = validateImageFiles(files);
+    if (validationError) {
+      setSelectedImageFiles([]);
+      setImageError(validationError);
+      return;
+    }
+
+    setSelectedImageFiles(files);
+    setImageError('');
+  }
+
+  async function handleImageUpload() {
+    if (!project?.id || selectedImageFiles.length === 0) return;
+
+    const validationError = validateImageFiles(selectedImageFiles);
+    if (validationError) {
+      setImageError(validationError);
+      return;
+    }
+
+    setIsUploadingImages(true);
+    setImageError('');
+    setImageMessage('Uploading project images...');
+
+    const formData = new FormData();
+    selectedImageFiles.forEach((file) => formData.append('files', file));
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/images`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json() as ImageResponse;
+
+      if (!response.ok) {
+        setImageMessage('');
+        setImageError(data.message ?? 'Could not upload project images.');
+        return;
+      }
+
+      setProjectImages(Array.isArray(data.images) ? data.images : projectImages);
+      setSelectedImageFiles([]);
+      setImageInputKey((key) => key + 1);
+      setImageMessage('Project images uploaded.');
+    } catch {
+      setImageMessage('');
+      setImageError('Could not upload project images.');
+    } finally {
+      setIsUploadingImages(false);
+    }
+  }
+
+  async function handleDeleteImage(imageId: string) {
+    if (!project?.id) return;
+
+    setImageError('');
+    setImageMessage('');
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/images/${imageId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        setImageError('Could not delete the project image.');
+        return;
+      }
+
+      setProjectImages((current) => current.filter((image) => image.id !== imageId));
+      setImageMessage('Project image deleted.');
+    } catch {
+      setImageError('Could not delete the project image.');
+    }
+  }
+
+  async function persistImageOrder(nextImages: ProjectImage[]) {
+    if (!project?.id) return;
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/images/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextImages.map((image) => image.id) }),
+      });
+
+      if (!response.ok) {
+        setImageError('Could not save the image order.');
+      }
+    } catch {
+      setImageError('Could not save the image order.');
+    }
+  }
+
+  function handleMoveImage(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= projectImages.length) return;
+
+    const nextImages = [...projectImages];
+    [nextImages[index], nextImages[targetIndex]] = [nextImages[targetIndex], nextImages[index]];
+    setProjectImages(nextImages);
+    setImageMessage('Image order updated.');
+    setImageError('');
+    persistImageOrder(nextImages);
+  }
+
   return (
     <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div className="grid gap-2">
@@ -526,6 +712,117 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           <span className="text-sm font-semibold">Published at</span>
           <Badge className="w-fit rounded-full" variant="success">{project.publishedAt}</Badge>
         </div>
+      ) : null}
+      {isEditMode ? (
+        <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-image-gallery-heading">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 id="project-image-gallery-heading" className="flex items-center gap-2 text-base font-semibold">
+                <ImagePlus className="h-4 w-4 text-primary" aria-hidden="true" />
+                Project image gallery
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Add screenshots or visual evidence that helps the case study read like a real portfolio piece.
+              </p>
+            </div>
+            {isLoadingImages ? (
+              <Badge className="w-fit rounded-full" variant="secondary">Loading images...</Badge>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div className="grid gap-2">
+              <label className="text-sm font-semibold" htmlFor="project-image-files">Image files</label>
+              <input
+                key={imageInputKey}
+                id="project-image-files"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                onChange={handleImageFileChange}
+                aria-describedby={imageError ? 'project-images-error' : undefined}
+                aria-invalid={imageError ? 'true' : undefined}
+              />
+              {selectedImageFiles.length > 0 ? (
+                <p className="text-xs font-medium text-muted-foreground">
+                  Selected {selectedImageFiles.length} image{selectedImageFiles.length === 1 ? '' : 's'} ({selectedImageFiles.map((file) => file.name).join(', ')})
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              onClick={handleImageUpload}
+              disabled={selectedImageFiles.length === 0 || isUploadingImages}
+              className="w-full sm:w-auto"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              {isUploadingImages ? 'Uploading...' : 'Upload images'}
+            </Button>
+          </div>
+
+          <div className="mt-3" aria-live="polite">
+            {imageError ? <ValidationMessage id="project-images-error" message={imageError} /> : null}
+            {imageMessage && !imageError ? (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
+                {imageMessage}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {projectImages.length === 0 && !isLoadingImages ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+                No project images yet.
+              </p>
+            ) : null}
+            {projectImages.map((image, index) => (
+              <article key={image.id} className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+                <div className="aspect-video bg-muted">
+                  <img
+                    src={image.url}
+                    alt={`Project gallery image ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span className="text-sm font-semibold">Image {index + 1}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleMoveImage(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move image ${index + 1} up`}
+                    >
+                      <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleMoveImage(index, 1)}
+                      disabled={index === projectImages.length - 1}
+                      aria-label={`Move image ${index + 1} down`}
+                    >
+                      <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteImage(image.id)}
+                      aria-label={`Delete image ${index + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
       {isEditMode ? (
         <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-oml-attachments-heading">
