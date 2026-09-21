@@ -98,7 +98,60 @@ describe('project .oml attachments API', () => {
     });
   });
 
-  it('rejects non-.oml files', async () => {
+  it('uploads multiple supported attachments and extracts metadata only for .oml files', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      files: [
+        omlFile(),
+        {
+          originalname: 'architecture.pdf',
+          mimetype: 'application/pdf',
+          size: 42,
+          buffer: Buffer.from('%PDF-1.4'),
+        },
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.projectAttachment.create).toHaveBeenNthCalledWith(1, {
+      data: expect.objectContaining({
+        filename: 'orders-portal.oml',
+        isOmlFile: true,
+        order: 0,
+      }),
+      include: { omlMetadata: true },
+    });
+    expect(prisma.projectAttachment.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        filename: 'architecture.pdf',
+        fileType: 'application/pdf',
+        isOmlFile: false,
+        order: 1,
+      }),
+      include: { omlMetadata: true },
+    });
+    expect(prisma.omlMetadata.upsert).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      attachments: [
+        expect.objectContaining({
+          filename: 'orders-portal.oml',
+          metadata,
+        }),
+        expect.objectContaining({
+          filename: 'architecture.pdf',
+          metadata: null,
+        }),
+      ],
+    });
+  });
+
+  it('uploads supported text attachments without .oml metadata', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);
     const res = mockResponse();
@@ -109,9 +162,33 @@ describe('project .oml attachments API', () => {
       files: [omlFile({ originalname: 'notes.txt', mimetype: 'text/plain' })],
     } as never, res as never);
 
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        filename: 'notes.txt',
+        isOmlFile: false,
+      }),
+      include: { omlMetadata: true },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects unsupported file types', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'malware.exe', mimetype: 'application/x-msdownload' })],
+    } as never, res as never);
+
     expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(415);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: 'unsupported_media_type',
+      message: 'Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.',
+    }));
   });
 
   it('rejects oversized .oml uploads', async () => {

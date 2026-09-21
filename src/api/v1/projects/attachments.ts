@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import type { Request, Response } from 'express';
 
-const MAX_OML_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_ATTACHMENT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const OML_MIME_TYPES = new Set([
   '',
   'application/octet-stream',
@@ -11,6 +11,13 @@ const OML_MIME_TYPES = new Set([
   'text/xml',
   'application/xml',
 ]);
+const SUPPORTED_ATTACHMENT_TYPES = {
+  '.oml': OML_MIME_TYPES,
+  '.pdf': new Set(['application/pdf']),
+  '.txt': new Set(['', 'text/plain']),
+  '.md': new Set(['', 'text/markdown', 'text/plain']),
+  '.zip': new Set(['application/octet-stream', 'application/zip', 'application/x-zip-compressed']),
+} as const;
 
 type UploadedFile = {
   originalname: string;
@@ -59,7 +66,7 @@ type AttachmentsDependencies = {
     };
     projectAttachment: {
       findMany(args: {
-        where: { projectId: string; isOmlFile?: boolean };
+        where: { projectId: string };
         include?: { omlMetadata: true };
         orderBy?: { order: 'asc' };
       }): Promise<AttachmentRecord[]>;
@@ -170,36 +177,47 @@ function baseName(filename: string) {
   return path.basename(filename).replace(/[^\w.\- ]/g, '_');
 }
 
-function validateOmlFile(file: UploadedFile) {
+function attachmentExtension(filename: string) {
+  return path.extname(filename).toLowerCase() as keyof typeof SUPPORTED_ATTACHMENT_TYPES;
+}
+
+function validateAttachmentFile(file: UploadedFile) {
   const filename = baseName(file.originalname);
-  if (!filename.toLowerCase().endsWith('.oml')) {
+  const extension = attachmentExtension(filename);
+  const supportedMimeTypes = SUPPORTED_ATTACHMENT_TYPES[extension];
+
+  if (!supportedMimeTypes) {
     return {
       status: 415,
       body: {
         error: 'unsupported_media_type',
-        message: 'Only .oml files can be uploaded.',
+        message: 'Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.',
       },
     };
   }
 
-  if (!OML_MIME_TYPES.has(file.mimetype ?? '')) {
+  if (!supportedMimeTypes.has(file.mimetype ?? '')) {
     return {
       status: 415,
       body: {
         error: 'unsupported_media_type',
-        message: 'The .oml file type is not supported.',
+        message: `The ${extension} file type is not supported.`,
       },
     };
   }
 
-  if (file.size > MAX_OML_FILE_SIZE_BYTES) {
+  if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
     return {
       status: 413,
       body: {
         error: 'payload_too_large',
-        message: 'The .oml file is larger than the 50 MiB limit.',
+        message: 'Attachments must be 50 MiB or smaller.',
       },
     };
+  }
+
+  if (extension !== '.oml') {
+    return { status: 200, body: null };
   }
 
   const metadata = extractOmlMetadata(file, filename);
@@ -259,20 +277,21 @@ export function createProjectAttachmentUploadHandler(deps: AttachmentsDependenci
       if (files.length === 0) {
         return res.status(400).json({
           error: 'validation_error',
-          message: 'At least one .oml file is required.',
+          message: 'At least one attachment file is required.',
         });
       }
 
       let order = await nextOrder(deps, authorized.project.id);
       const attachments: AttachmentRecord[] = [];
       for (const file of files) {
-        const validation = validateOmlFile(file);
+        const validation = validateAttachmentFile(file);
         if (validation.status !== 200) {
           return res.status(validation.status).json(validation.body);
         }
 
         const id = crypto.randomUUID();
         const filename = baseName(file.originalname);
+        const isOmlFile = attachmentExtension(filename) === '.oml';
         const attachment = await deps.prisma.projectAttachment.create({
           data: {
             id,
@@ -281,17 +300,19 @@ export function createProjectAttachmentUploadHandler(deps: AttachmentsDependenci
             url: storedAttachmentUrl(authorized.project.id, id, filename),
             fileType: file.mimetype ?? 'application/octet-stream',
             fileSize: file.size,
-            isOmlFile: true,
+            isOmlFile,
             order,
           },
           include: { omlMetadata: true },
         });
-        const metadata = validation.body as OmlMetadataRecord;
-        await deps.prisma.omlMetadata.upsert({
-          where: { attachmentId: attachment.id },
-          update: metadata,
-          create: { attachmentId: attachment.id, ...metadata },
-        });
+        const metadata = validation.body as OmlMetadataRecord | null;
+        if (isOmlFile && metadata) {
+          await deps.prisma.omlMetadata.upsert({
+            where: { attachmentId: attachment.id },
+            update: metadata,
+            create: { attachmentId: attachment.id, ...metadata },
+          });
+        }
 
         attachments.push({ ...attachment, omlMetadata: metadata });
         order += 1;
@@ -303,7 +324,7 @@ export function createProjectAttachmentUploadHandler(deps: AttachmentsDependenci
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
-        message: 'Could not upload the .oml attachment.',
+        message: 'Could not upload the project attachment.',
       });
     }
   };
@@ -316,7 +337,7 @@ export function createProjectAttachmentListHandler(deps: AttachmentsDependencies
       if (!authorized.ok) return authorized.response;
 
       const attachments = await deps.prisma.projectAttachment.findMany({
-        where: { projectId: authorized.project.id, isOmlFile: true },
+        where: { projectId: authorized.project.id },
         include: { omlMetadata: true },
         orderBy: { order: 'asc' },
       });
@@ -381,7 +402,7 @@ export function createProjectAttachmentOrderHandler(deps: AttachmentsDependencie
       })));
 
       const attachments = await deps.prisma.projectAttachment.findMany({
-        where: { projectId: authorized.project.id, isOmlFile: true },
+        where: { projectId: authorized.project.id },
         include: { omlMetadata: true },
         orderBy: { order: 'asc' },
       });
@@ -410,7 +431,15 @@ export function createProjectOmlMetadataHandler(deps: AttachmentsDependencies) {
         });
       }
 
-      const validation = validateOmlFile(file);
+      const filename = baseName(file.originalname);
+      if (attachmentExtension(filename) !== '.oml') {
+        return res.status(422).json({
+          error: 'invalid_oml_file',
+          message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+        });
+      }
+
+      const validation = validateAttachmentFile(file);
       if (validation.status !== 200) {
         return res.status(validation.status === 415 ? 422 : validation.status).json({
           error: 'invalid_oml_file',

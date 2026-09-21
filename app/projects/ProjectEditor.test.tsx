@@ -268,6 +268,7 @@ describe('ProjectEditor', () => {
       filename: 'orders-portal.oml',
       url: '/api/v1/projects/project-1/attachments/attachment-1/download',
       fileSize: 128,
+      isOmlFile: true,
       metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
     };
     jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
@@ -298,17 +299,82 @@ describe('ProjectEditor', () => {
     render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
 
     await user.upload(
-      screen.getByLabelText(/\.oml file/i),
+      screen.getByLabelText(/attachment files/i),
       new File(['<moduleName>OrdersPortal</moduleName><version>1.2.3</version>'], 'orders-portal.oml', {
         type: 'application/octet-stream',
       }),
     );
-    await user.click(screen.getByRole('button', { name: /upload \.oml/i }));
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
 
-    expect(await screen.findByText('The .oml attachment was uploaded and validated.')).toBeInTheDocument();
+    expect(await screen.findByText('Project attachments were uploaded and .oml metadata was validated.')).toBeInTheDocument();
     expect(screen.getByText('orders-portal.oml')).toBeInTheDocument();
     expect(screen.getByText('OrdersPortal')).toBeInTheDocument();
     expect(screen.getByText('1.2.3')).toBeInTheDocument();
+  });
+
+  it('uploads and displays multiple supported project attachments', async () => {
+    const user = userEvent.setup();
+    const attachments = [
+      {
+        id: 'attachment-1',
+        filename: 'orders-portal.oml',
+        url: '/api/v1/projects/project-1/attachments/attachment-1/download',
+        fileSize: 128,
+        isOmlFile: true,
+        fileType: 'application/octet-stream',
+        metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+      },
+      {
+        id: 'attachment-2',
+        filename: 'architecture.pdf',
+        url: '/api/v1/projects/project-1/attachments/attachment-2/download',
+        fileSize: 512,
+        isOmlFile: false,
+        fileType: 'application/pdf',
+        metadata: null,
+      },
+    ];
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments' && init?.method === 'POST') {
+        expect(init.body).toBeInstanceOf(FormData);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), [
+      new File(['<moduleName>OrdersPortal</moduleName><version>1.2.3</version>'], 'orders-portal.oml', {
+        type: 'application/octet-stream',
+      }),
+      new File(['%PDF-1.4'], 'architecture.pdf', { type: 'application/pdf' }),
+    ]);
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
+
+    expect(await screen.findByText('Project attachments were uploaded and .oml metadata was validated.')).toBeInTheDocument();
+    expect(screen.getByText('orders-portal.oml')).toBeInTheDocument();
+    expect(screen.getByText('architecture.pdf')).toBeInTheDocument();
+    expect(screen.getByText('OrdersPortal')).toBeInTheDocument();
+    expect(screen.getByText('application/pdf')).toBeInTheDocument();
+    expect(screen.getByText('No extracted metadata')).toBeInTheDocument();
   });
 
   it('shows accessible feedback when an .oml upload is rejected', async () => {
@@ -342,8 +408,8 @@ describe('ProjectEditor', () => {
 
     render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
 
-    await user.upload(screen.getByLabelText(/\.oml file/i), new File(['corrupted invalid_oml'], 'broken.oml'));
-    await user.click(screen.getByRole('button', { name: /upload \.oml/i }));
+    await user.upload(screen.getByLabelText(/attachment files/i), new File(['corrupted invalid_oml'], 'broken.oml'));
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
@@ -357,6 +423,7 @@ describe('ProjectEditor', () => {
       filename: 'orders-portal.oml',
       url: '/download/1',
       fileSize: 128,
+      isOmlFile: true,
       metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
     };
     const secondAttachment = {
@@ -364,6 +431,7 @@ describe('ProjectEditor', () => {
       filename: 'crm-app.oml',
       url: '/download/2',
       fileSize: 256,
+      isOmlFile: true,
       metadata: { moduleName: 'CRMApp', version: '2.0.0' },
     };
     jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
@@ -411,7 +479,7 @@ describe('ProjectEditor', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /delete orders-portal\.oml/i }));
-    expect(await screen.findByText('The .oml attachment was deleted.')).toBeInTheDocument();
+    expect(await screen.findByText('The project attachment was deleted.')).toBeInTheDocument();
     expect(screen.queryByText('orders-portal.oml')).not.toBeInTheDocument();
   });
 
@@ -500,6 +568,43 @@ describe('ProjectEditor', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Only JPEG, PNG, GIF, or WebP images can be uploaded.');
     expect(screen.getByRole('button', { name: /upload images/i })).toBeDisabled();
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/images', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('prevents unsupported attachment types before upload', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), new File(['binary'], 'malware.exe', {
+      type: 'application/x-msdownload',
+    }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.');
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
   });
 
   it('prevents oversized images before upload', async () => {
