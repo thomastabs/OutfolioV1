@@ -65,12 +65,13 @@ describe('PUT /api/v1/projects/:id', () => {
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
     const storage = {
       resolveMediaUrl: jest.fn(async (value: string) => (value.startsWith('projects/') ? `https://signed.example/${value}` : value)),
+      uploadProjectMedia: jest.fn(async (key: string) => key),
     };
     const deps = { prisma, validateSession, storage, ...overrides };
     const handler = createProjectUpdateHandler(deps);
     const res = mockResponse();
 
-    return { deps, handler, res };
+    return { deps, handler, res, storage };
   }
 
   it('does not overwrite a Storage-key coverImageUrl with its own resolved signed URL when the owner saves without changing it', async () => {
@@ -91,6 +92,56 @@ describe('PUT /api/v1/projects/:id', () => {
       where: { id: 'project-1' },
       data: expect.objectContaining({ coverImageUrl: 'projects/project-1/images/cover-1.png' }),
     });
+  });
+
+  it('uploads a replacement cover image file to Supabase Storage instead of accepting a client-side base64 data-URL', async () => {
+    const { deps, handler, res, storage } = setup();
+    const coverImageFile = {
+      fieldname: 'coverImage',
+      originalname: 'new-cover.png',
+      mimetype: 'image/png',
+      size: 5,
+      buffer: Buffer.from('cover'),
+    };
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      body: validBody,
+      files: [coverImageFile],
+    } as never, res as never);
+
+    expect(storage.uploadProjectMedia).toHaveBeenCalledWith(
+      expect.stringMatching(/^projects\/project-1\/cover\/.+\.png$/),
+      Buffer.from('cover'),
+      'image/png',
+    );
+    expect(deps.prisma.project.update).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+      data: expect.objectContaining({ coverImageUrl: expect.stringMatching(/^projects\/project-1\/cover\/.+\.png$/) }),
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects an unsupported cover image replacement file type without writing anything', async () => {
+    const { deps, handler, res } = setup();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      body: validBody,
+      files: [{
+        fieldname: 'coverImage',
+        originalname: 'malware.exe',
+        mimetype: 'application/x-msdownload',
+        size: 5,
+        buffer: Buffer.from('cover'),
+      }],
+    } as never, res as never);
+
+    expect(deps.prisma.project.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
   });
 
   it('updates an owned project with valid input', async () => {

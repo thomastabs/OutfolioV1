@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { slugifyProjectTitle } from './create';
 
@@ -36,8 +37,45 @@ type ProjectUpdateDependencies = {
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
   storage: {
     resolveMediaUrl(value: string): Promise<string>;
+    uploadProjectMedia(key: string, buffer: Buffer, contentType: string): Promise<string>;
   };
 };
+
+type UploadedFile = {
+  fieldname?: string;
+  originalname: string;
+  mimetype?: string;
+  size: number;
+  buffer: Buffer;
+};
+
+const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
+
+function coverImageFileFrom(req: Request) {
+  const files = (req as Request & { files?: UploadedFile[] }).files;
+  if (!Array.isArray(files)) return null;
+  return files.find((file) => file.fieldname === 'coverImage' || file.fieldname === 'coverImageFile') ?? null;
+}
+
+function validateCoverImageFile(file: UploadedFile) {
+  if (!IMAGE_MIME_TYPES.has(file.mimetype ?? '')) {
+    return 'Only JPEG, PNG, GIF, or WebP images can be uploaded.';
+  }
+  if (file.size > MAX_IMAGE_FILE_SIZE_BYTES) {
+    return 'Images must be 10 MiB or smaller.';
+  }
+  if (!file.buffer || file.buffer.length === 0) {
+    return 'The uploaded image file is empty or invalid.';
+  }
+  return null;
+}
 
 type ProjectUpdateInput = {
   title?: unknown;
@@ -299,21 +337,45 @@ export function createProjectUpdateHandler(deps: ProjectUpdateDependencies) {
         });
       }
 
-      // Story 9564046: coverImageUrl in a GET/list response may be a
-      // signed Storage URL resolved from a stored key (see
-      // src/lib/storage.ts). The edit form round-trips whatever it was
-      // shown back through this endpoint's free-text URL field when the
-      // owner saves without picking a new cover file. Since a signed URL
-      // is itself a valid https:// URL, persisting it verbatim would
-      // silently replace the stable Storage key with a URL that expires
-      // - detect that exact round-trip and keep the original stored
-      // value (the key) instead of overwriting it with its own resolved
-      // form.
-      const resolvedExistingCoverImageUrl = await deps.storage.resolveMediaUrl(project.coverImageUrl ?? '');
-      const coverImageUrl =
-        parsed.data.coverImageUrl === resolvedExistingCoverImageUrl
-          ? (project.coverImageUrl ?? '')
-          : parsed.data.coverImageUrl;
+      // Story 9564046: replacing the cover image with a new file (edit
+      // mode) uploads the real file to Supabase Storage here, exactly
+      // like project creation already does - the old behavior
+      // (base64-encoding the file client-side into the coverImageUrl
+      // text field) never actually put it in Storage. This is the one
+      // case that legitimately writes a new Storage key, so it bypasses
+      // both the http(s) URL validation and the round-trip guard below,
+      // neither of which apply to a genuinely new upload.
+      const coverImageFile = coverImageFileFrom(req);
+      let coverImageUrl: string;
+
+      if (coverImageFile) {
+        const validationError = validateCoverImageFile(coverImageFile);
+        if (validationError) {
+          return res.status(415).json({
+            error: 'unsupported_media_type',
+            message: validationError,
+          });
+        }
+
+        const extension = IMAGE_EXTENSIONS[coverImageFile.mimetype ?? ''] ?? '';
+        const key = `projects/${projectId}/cover/${crypto.randomUUID()}${extension}`;
+        coverImageUrl = await deps.storage.uploadProjectMedia(key, coverImageFile.buffer, coverImageFile.mimetype || 'application/octet-stream');
+      } else {
+        // coverImageUrl in a GET/list response may be a signed Storage
+        // URL resolved from a stored key (see src/lib/storage.ts). The
+        // edit form round-trips whatever it was shown back through this
+        // endpoint's free-text URL field when the owner saves without
+        // picking a new cover file. Since a signed URL is itself a valid
+        // https:// URL, persisting it verbatim would silently replace
+        // the stable Storage key with a URL that expires - detect that
+        // exact round-trip and keep the original stored value (the key)
+        // instead of overwriting it with its own resolved form.
+        const resolvedExistingCoverImageUrl = await deps.storage.resolveMediaUrl(project.coverImageUrl ?? '');
+        coverImageUrl =
+          parsed.data.coverImageUrl === resolvedExistingCoverImageUrl
+            ? (project.coverImageUrl ?? '')
+            : parsed.data.coverImageUrl;
+      }
 
       const updatedProject = await deps.prisma.project.update({
         where: { id: projectId },

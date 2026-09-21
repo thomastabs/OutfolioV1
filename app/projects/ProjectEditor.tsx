@@ -276,19 +276,6 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     return errors;
   }
 
-  async function fileToDataUrl(file: File) {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        resolve(typeof reader.result === 'string' ? reader.result : '');
-      });
-      reader.addEventListener('error', () => {
-        reject(new Error('Could not read the cover image file.'));
-      });
-      reader.readAsDataURL(file);
-    });
-  }
-
   function resetForm() {
     setTitle('');
     setSummary('');
@@ -334,6 +321,31 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
       visibility,
       publishedAt: project?.publishedAt ?? null,
     };
+  }
+
+  // Story 9564046: a replacement cover image file is uploaded to
+  // Supabase Storage server-side (both create.ts and update.ts accept a
+  // `coverImage` multipart field) rather than base64-encoded client-side
+  // into the coverImageUrl text field, which never actually stored the
+  // file anywhere real. coverImageUrl itself is omitted here - the
+  // backend uses the uploaded file instead whenever one is present.
+  function requestFormData(coverImageFile: File) {
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('summary', summary);
+    formData.append('projectType', projectType);
+    formData.append('role', role);
+    formData.append('status', status);
+    tagsFromInput(tags).forEach((tag) => formData.append('tags', tag));
+    formData.append('problem', problem);
+    formData.append('features', features);
+    formData.append('technicalNotes', technicalNotes);
+    formData.append('contribution', contribution);
+    formData.append('outcome', outcome);
+    formData.append('visibility', visibility);
+    if (project?.publishedAt) formData.append('publishedAt', project.publishedAt);
+    formData.append('coverImage', coverImageFile);
+    return formData;
   }
 
   async function uploadImagesForProject(projectId: string, files: File[]) {
@@ -393,11 +405,11 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setIsSubmitting(true);
 
     try {
-      const uploadedCoverImageUrl = selectedCoverImageFile ? await fileToDataUrl(selectedCoverImageFile) : coverImageUrl;
       const response = await fetch(isEditMode ? `/api/v1/projects/${project?.id}` : '/api/v1/projects', {
         method: isEditMode ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody(uploadedCoverImageUrl)),
+        ...(selectedCoverImageFile
+          ? { body: requestFormData(selectedCoverImageFile) }
+          : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }),
       });
       const data = await response.json();
 
@@ -446,7 +458,6 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           onProjectCreated?.(hasCreateMedia
             ? ({
                 ...createdProject,
-                coverImageUrl: uploadedCoverImageUrl,
                 images: uploadedImages,
                 attachments: uploadedAttachments,
               } as ProjectSummary)
@@ -567,7 +578,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
 
     setSelectedCoverImageFile(file);
     setCoverImageFileError('');
-    setCoverImageFileMessage(`${file.name} will be uploaded as the project cover when the project is created.`);
+    setCoverImageFileMessage(`${file.name} will be uploaded as the project cover when you save.`);
   }
 
   async function handleAttachmentUpload() {
@@ -830,29 +841,27 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         {fieldErrors.coverImageUrl ? (
           <ValidationMessage id="project-cover-error" message={fieldErrors.coverImageUrl} />
         ) : null}
-        {!isEditMode ? (
-          <div className="mt-2 grid gap-2 rounded-lg border border-dashed border-border bg-background/80 p-3">
-            <label className="text-sm font-semibold" htmlFor="project-cover-image-file">Upload cover image</label>
-            <input
-              key={coverImageInputKey}
-              id="project-cover-image-file"
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              onChange={handleCoverImageFileChange}
-              aria-describedby={coverImageFileError ? 'project-cover-image-file-error' : coverImageFileMessage ? 'project-cover-image-file-message' : undefined}
-              aria-invalid={coverImageFileError ? 'true' : undefined}
-            />
-            {coverImageFileError ? (
-              <ValidationMessage id="project-cover-image-file-error" message={coverImageFileError} />
-            ) : null}
-            {coverImageFileMessage && !coverImageFileError ? (
-              <p id="project-cover-image-file-message" className="text-xs font-medium text-muted-foreground" role="status">
-                {coverImageFileMessage}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="mt-2 grid gap-2 rounded-lg border border-dashed border-border bg-background/80 p-3">
+          <label className="text-sm font-semibold" htmlFor="project-cover-image-file">Upload cover image</label>
+          <input
+            key={coverImageInputKey}
+            id="project-cover-image-file"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            onChange={handleCoverImageFileChange}
+            aria-describedby={coverImageFileError ? 'project-cover-image-file-error' : coverImageFileMessage ? 'project-cover-image-file-message' : undefined}
+            aria-invalid={coverImageFileError ? 'true' : undefined}
+          />
+          {coverImageFileError ? (
+            <ValidationMessage id="project-cover-image-file-error" message={coverImageFileError} />
+          ) : null}
+          {coverImageFileMessage && !coverImageFileError ? (
+            <p id="project-cover-image-file-message" className="text-xs font-medium text-muted-foreground" role="status">
+              {coverImageFileMessage}
+            </p>
+          ) : null}
+        </div>
       </div>
       <div className="grid gap-2 md:col-span-2 xl:col-span-3">
         <label className="text-sm font-semibold" htmlFor="project-problem">Problem</label>

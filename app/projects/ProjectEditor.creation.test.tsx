@@ -59,11 +59,14 @@ describe('Story 9563893: ProjectEditor media upload during project creation', ()
 
     jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
       if (url === '/api/v1/projects' && init?.method === 'POST') {
-        const body = JSON.parse(String(init.body));
-        expect(body.coverImageUrl).toMatch(/^data:image\/png;base64,/);
+        // A selected cover image file is uploaded to Supabase Storage via
+        // a multipart body (Story 9564046), not base64-encoded into a
+        // JSON coverImageUrl field.
+        expect(init.body).toBeInstanceOf(FormData);
+        expect((init.body as FormData).get('coverImage')).toBeInstanceOf(File);
         return okResponse({
           ...createdProject,
-          coverImageUrl: body.coverImageUrl,
+          coverImageUrl: 'https://signed.example/projects/project-1/cover/cover-1.png',
         });
       }
 
@@ -119,7 +122,7 @@ describe('Story 9563893: ProjectEditor media upload during project creation', ()
     }));
     expect(onProjectCreated).toHaveBeenCalledWith(expect.objectContaining({
       id: 'project-1',
-      coverImageUrl: expect.stringMatching(/^data:image\/png;base64,/),
+      coverImageUrl: 'https://signed.example/projects/project-1/cover/cover-1.png',
       images: uploadedImages,
       attachments: uploadedAttachments,
     }));
@@ -132,10 +135,9 @@ describe('Story 9563893: ProjectEditor media upload during project creation', ()
 
     jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
       if (url === '/api/v1/projects' && init?.method === 'POST') {
-        const body = JSON.parse(String(init.body));
         return okResponse({
           ...createdProject,
-          coverImageUrl: body.coverImageUrl,
+          coverImageUrl: 'https://signed.example/projects/project-1/cover/cover-1.png',
         });
       }
 
@@ -190,6 +192,44 @@ describe('Story 9563893: ProjectEditor media upload during project creation', ()
     expect(await screen.findByRole('alert')).toHaveTextContent('Only JPEG, PNG, GIF, or WebP images can be uploaded.');
     expect(screen.getByRole('button', { name: /create project/i })).toBeDisabled();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('uploads a replacement cover image via multipart PUT in edit mode, not a base64 JSON body', async () => {
+    const user = userEvent.setup();
+    const onProjectUpdated = jest.fn();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return okResponse({ attachments: [] });
+      }
+      if (url === '/api/v1/projects/project-1/images') {
+        return okResponse({ images: [] });
+      }
+      if (url === '/api/v1/projects/project-1' && init?.method === 'PUT') {
+        expect(init.body).toBeInstanceOf(FormData);
+        expect((init.body as FormData).get('coverImage')).toBeInstanceOf(File);
+        // The plain-text coverImageUrl field must not be sent alongside a
+        // replacement file - the backend uses the uploaded file instead.
+        expect((init.body as FormData).get('coverImageUrl')).toBeNull();
+        return okResponse({
+          ...createdProject,
+          coverImageUrl: 'https://signed.example/projects/project-1/cover/new-cover.png',
+        });
+      }
+      return okResponse({});
+    });
+
+    render(<ProjectEditor project={createdProject} onProjectUpdated={onProjectUpdated} />);
+
+    await user.upload(
+      screen.getByLabelText(/upload cover image/i),
+      new File(['new-cover'], 'new-cover.png', { type: 'image/png' }),
+    );
+    await user.click(screen.getByRole('button', { name: /save project/i }));
+
+    await waitFor(() => expect(onProjectUpdated).toHaveBeenCalledWith(expect.objectContaining({
+      coverImageUrl: 'https://signed.example/projects/project-1/cover/new-cover.png',
+    })));
   });
 
   it('keeps edit-mode upload buttons available for existing projects', async () => {
