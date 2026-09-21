@@ -76,7 +76,7 @@ test('registers, logs in, creates and publishes a project, then views it publicl
     projectSlug = created.slug;
 
     const projectList = page.getByRole('region', { name: 'Project list' });
-    await expect(projectList.getByText(testProject.title)).toBeVisible();
+    await expect(projectList.getByRole('heading', { name: testProject.title })).toBeVisible();
     await expect(projectList.getByText('Draft')).toBeVisible();
   });
 
