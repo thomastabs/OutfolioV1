@@ -165,6 +165,72 @@ describe('HomePage', () => {
     expect(placeholder).toHaveClass('project-highlight-placeholder');
   });
 
+  describe('Story 9560156: project highlight cover images', () => {
+    it.each([
+      { role: 'visitor', sessionStatus: 401 },
+      { role: 'authenticated developer', sessionStatus: 200 },
+    ])('SC-1 displays a visible cover image next to title and summary for a $role', async ({ sessionStatus }) => {
+      mockHomeRequests({
+        sessionStatus,
+        session: authenticatedSessionResponse,
+        dashboard: {
+          ...dashboardResponse,
+          publishedProjects: [dashboardResponse.publishedProjects[0]],
+        },
+      });
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      const title = within(list).getByText('Portfolio Builder');
+      const card = title.closest('li');
+      expect(card).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/home/dashboard');
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/session');
+
+      const coverImage = within(card as HTMLElement).getByRole('img', { name: 'Portfolio Builder cover image' });
+      expect(coverImage).toHaveAttribute('src', 'https://example.com/portfolio-cover.png');
+      expect(coverImage).toHaveClass('project-highlight-cover');
+      expect(within(card as HTMLElement).getByRole('heading', { name: 'Portfolio Builder' })).toBeInTheDocument();
+      expect(within(card as HTMLElement).getByText('A documentation workspace for portfolio projects.')).toBeInTheDocument();
+      expect(within(card as HTMLElement).queryByRole('img', { name: 'Placeholder image for Portfolio Builder' })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      { role: 'visitor', sessionStatus: 401 },
+      { role: 'authenticated developer', sessionStatus: 200 },
+    ])('SC-2 displays an accessible placeholder instead of blank space for a $role', async ({ sessionStatus }) => {
+      mockHomeRequests({
+        sessionStatus,
+        session: authenticatedSessionResponse,
+        dashboard: {
+          ...dashboardResponse,
+          publishedProjects: [
+            {
+              ...dashboardResponse.publishedProjects[1],
+              coverImageUrl: '   ',
+            },
+          ],
+        },
+      });
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      const title = within(list).getByText('Case Study API');
+      const card = title.closest('li');
+      expect(card).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/home/dashboard');
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/session');
+
+      const placeholder = within(card as HTMLElement).getByRole('img', { name: 'Placeholder image for Case Study API' });
+      expect(placeholder).toHaveClass('project-highlight-placeholder');
+      expect(within(card as HTMLElement).getByRole('heading', { name: 'Case Study API' })).toBeInTheDocument();
+      expect(within(card as HTMLElement).getByText('A public project API case study.')).toBeInTheDocument();
+      expect(within(card as HTMLElement).queryByRole('img', { name: 'Case Study API cover image' })).not.toBeInTheDocument();
+    });
+  });
+
   it('renders project highlight calls to action that link to public project pages', async () => {
     const user = userEvent.setup();
     mockHomeRequests();
