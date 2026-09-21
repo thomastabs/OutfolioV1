@@ -45,4 +45,19 @@ describe('GitHub Actions deployment workflow', () => {
     expect(source).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY\s*:\s*(?!\$\{\{ secrets\.)\S+/);
     expect(source).not.toMatch(/NEXTAUTH_SECRET\s*:\s*(?!\$\{\{ secrets\.)\S+/);
   });
+
+  it('keeps the CI Node version aligned with package.json engines and pins the runner image', () => {
+    const source = fs.readFileSync(workflowPath, 'utf8');
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+    ) as { engines?: { node?: string } };
+
+    const declaredEngine = packageJson.engines?.node ?? '';
+    const majorVersion = declaredEngine.match(/^(\d+)/)?.[1];
+
+    expect(majorVersion).toBeTruthy();
+    expect(source).toContain(`node-version: ${majorVersion}`);
+    expect(source).not.toContain('runs-on: ubuntu-latest');
+    expect(source).toMatch(/runs-on: ubuntu-\d+\.\d+/);
+  });
 });

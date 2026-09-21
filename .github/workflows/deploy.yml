@@ -36,7 +36,10 @@ concurrency:
 jobs:
   build-and-deploy:
     name: Build, test, and deploy
-    runs-on: ubuntu-latest
+    # Pinned rather than "ubuntu-latest": that floating alias is scheduled
+    # to migrate to Ubuntu 26 on 2026-10-19, which would silently change
+    # the runner under this workflow. Pin and bump deliberately instead.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 
