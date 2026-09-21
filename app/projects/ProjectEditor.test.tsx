@@ -377,6 +377,73 @@ describe('ProjectEditor', () => {
     expect(screen.getByText('No extracted metadata')).toBeInTheDocument();
   });
 
+  it('shows the plain success message and re-enables the upload button after a non-.oml attachment upload', async () => {
+    const user = userEvent.setup();
+    const attachments = [
+      {
+        id: 'attachment-1',
+        filename: 'ARCHITECTURE.PDF',
+        url: '/api/v1/projects/project-1/attachments/attachment-1/download',
+        fileSize: 512,
+        isOmlFile: false,
+        fileType: 'application/pdf',
+        metadata: null,
+      },
+    ];
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return { ok: true, status: 200, json: async () => ({ attachments: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments' && init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ({ attachments }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText(/attachment files/i),
+      new File(['%PDF-1.4'], 'ARCHITECTURE.PDF', { type: 'application/pdf' }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
+
+    expect(await screen.findByText('Project attachments were uploaded.')).toBeInTheDocument();
+    expect(screen.getByText('ARCHITECTURE.PDF')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+
+    await user.upload(
+      screen.getByLabelText(/attachment files/i),
+      new File(['%PDF-1.4'], 'another.pdf', { type: 'application/pdf' }),
+    );
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeEnabled();
+  });
+
+  it('rejects an attachment file with no extension', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return { ok: true, status: 200, json: async () => ({ attachments: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), new File(['content'], 'README', { type: 'text/plain' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.');
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
+  });
+
   it('shows accessible feedback when an .oml upload is rejected', async () => {
     const user = userEvent.setup();
     jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {

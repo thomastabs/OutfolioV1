@@ -191,6 +191,55 @@ describe('project .oml attachments API', () => {
     }));
   });
 
+  it('accepts uppercase and mixed-case file extensions case-insensitively', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'ARCHITECTURE.PDF', mimetype: 'application/pdf' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename: 'ARCHITECTURE.PDF' }),
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects files with no extension', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'README', mimetype: 'text/plain' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+  });
+
+  it('validates by the final extension of a double-extension filename', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'architecture.pdf.exe', mimetype: 'application/x-msdownload' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+  });
+
   it('rejects the entire batch atomically when one file in a mixed selection is unsupported, persisting nothing', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);
