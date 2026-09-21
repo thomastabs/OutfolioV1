@@ -1,4 +1,7 @@
-import { createPublicProjectAttachmentDownloadHandler } from '@/src/api/v1/projects/attachments';
+import {
+  createProjectAttachmentDownloadHandler,
+  createPublicProjectAttachmentDownloadHandler,
+} from '@/src/api/v1/projects/attachments';
 
 function mockResponse() {
   return {
@@ -234,5 +237,99 @@ describe('GET /api/v1/public/projects/:id/attachments/:attachmentId', () => {
       error: 'unexpected_failure',
       message: 'Could not download the attachment.',
     });
+  });
+});
+
+describe('GET /api/v1/projects/:id/attachments/:attachmentId/download', () => {
+  const project = { id: 'project-1', ownerId: 'user-1' };
+  const attachment = {
+    id: 'attachment-1',
+    projectId: 'project-1',
+    filename: 'architecture.pdf',
+    url: '/api/v1/projects/project-1/attachments/attachment-1/download?filename=architecture.pdf',
+    fileType: 'application/pdf',
+    fileSize: 42,
+    isOmlFile: false,
+    order: 0,
+  };
+
+  function setup(overrides: Record<string, unknown> = {}) {
+    const prisma = {
+      project: {
+        findUnique: jest.fn().mockResolvedValue(project),
+      },
+      projectAttachment: {
+        findFirst: jest.fn().mockResolvedValue(attachment),
+      },
+    };
+    const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
+    const handler = createProjectAttachmentDownloadHandler({ prisma, validateSession, ...overrides } as never);
+    const res = mockResponse();
+
+    return { prisma, validateSession, handler, res };
+  }
+
+  it('serves the attachment file for the authenticated project owner', async () => {
+    const { prisma, handler, res } = setup();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1', attachmentId: 'attachment-1' },
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.findFirst).toHaveBeenCalledWith({
+      where: { id: 'attachment-1', projectId: 'project-1' },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="architecture.pdf"');
+    expect(res.send).toHaveBeenCalledWith(expect.any(Buffer));
+  });
+
+  it('requires a valid authenticated session', async () => {
+    const { handler, res } = setup({
+      validateSession: jest.fn().mockReturnValue({ valid: false, reason: 'missing_session' }),
+    });
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1', attachmentId: 'attachment-1' },
+    } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'missing_or_invalid_auth' }));
+  });
+
+  it('forbids downloading attachments for non-owners', async () => {
+    const { handler, res } = setup({
+      prisma: {
+        project: { findUnique: jest.fn().mockResolvedValue({ id: 'project-1', ownerId: 'another-user' }) },
+      },
+    });
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1', attachmentId: 'attachment-1' },
+    } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'not_owner' }));
+  });
+
+  it('returns 404 when the attachment does not exist for the project', async () => {
+    const { handler, res } = setup({
+      prisma: {
+        project: { findUnique: jest.fn().mockResolvedValue(project) },
+        projectAttachment: { findFirst: jest.fn().mockResolvedValue(null) },
+      },
+    });
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1', attachmentId: 'missing-attachment' },
+    } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'attachment_not_found' }));
   });
 });

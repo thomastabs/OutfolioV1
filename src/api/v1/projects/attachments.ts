@@ -401,6 +401,36 @@ export function createProjectAttachmentDeleteHandler(deps: AttachmentsDependenci
   };
 }
 
+export function createProjectAttachmentDownloadHandler(deps: AttachmentsDependencies) {
+  return async function projectAttachmentDownloadHandler(req: Request, res: Response) {
+    try {
+      const authorized = await authorizeProject(deps, req, res);
+      if (!authorized.ok) return authorized.response;
+
+      const attachmentId = attachmentIdFrom(req);
+      const attachment = await deps.prisma.projectAttachment.findFirst({
+        where: { id: attachmentId, projectId: authorized.project.id },
+      });
+      if (!attachment) {
+        return res.status(404).json({
+          error: 'attachment_not_found',
+          message: 'Attachment not found.',
+        });
+      }
+
+      res.status(200);
+      res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
+      return res.send(publicDownloadBody(attachment));
+    } catch {
+      return res.status(500).json({
+        error: 'unexpected_failure',
+        message: 'Could not download the attachment.',
+      });
+    }
+  };
+}
+
 export function createProjectAttachmentOrderHandler(deps: AttachmentsDependencies) {
   return async function projectAttachmentOrderHandler(req: Request, res: Response) {
     try {
@@ -545,6 +575,10 @@ export async function projectAttachmentListHandler(req: Request, res: Response) 
 
 export async function projectAttachmentDeleteHandler(req: Request, res: Response) {
   return createProjectAttachmentDeleteHandler(await dependencies())(req, res);
+}
+
+export async function projectAttachmentDownloadHandler(req: Request, res: Response) {
+  return createProjectAttachmentDownloadHandler(await dependencies())(req, res);
 }
 
 export async function projectAttachmentOrderHandler(req: Request, res: Response) {

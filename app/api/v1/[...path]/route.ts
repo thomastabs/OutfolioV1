@@ -247,6 +247,12 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
         };
       }
     }
+    if (method === 'GET' && fourth && fifth === 'download') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentDownloadHandler'),
+        params: { id: second, attachmentId: fourth },
+      };
+    }
     if (method === 'DELETE' && fourth) {
       return {
         loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentDeleteHandler'),
