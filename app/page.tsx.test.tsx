@@ -165,6 +165,79 @@ describe('HomePage', () => {
     expect(placeholder).toHaveClass('project-highlight-placeholder');
   });
 
+  describe('Story 9560160: project highlight card layout', () => {
+    it('renders the highlight list on the responsive grid layout hook', async () => {
+      mockHomeRequests();
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      expect(list).toHaveClass('project-highlight-grid');
+    });
+
+    it('combines cover image, metadata, and summary text within a single card for each highlight', async () => {
+      mockHomeRequests();
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      const cards = within(list).getAllByRole('listitem');
+      expect(cards).toHaveLength(2);
+
+      cards.forEach((card) => {
+        expect(within(card).getByRole('heading')).toBeInTheDocument();
+        expect(within(card).getByRole('img')).toBeInTheDocument();
+        expect(card.querySelector('.project-highlight-card__copy')).not.toBeNull();
+      });
+    });
+
+    it('renders long title, summary, and metadata text without breaking the card structure', async () => {
+      const longTag = 'a'.repeat(80);
+      mockHomeRequests({
+        dashboard: {
+          ...dashboardResponse,
+          publishedProjects: [
+            {
+              ...dashboardResponse.publishedProjects[0],
+              title: 'A'.repeat(120),
+              summary: 'S'.repeat(600),
+              projectType: 'T'.repeat(60),
+              role: 'R'.repeat(60),
+              tags: [longTag],
+            },
+            dashboardResponse.publishedProjects[1],
+          ],
+        },
+      });
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      expect(within(list).getByRole('heading', { name: 'A'.repeat(120) })).toBeInTheDocument();
+      expect(within(list).getByText('S'.repeat(600))).toBeInTheDocument();
+      expect(within(list).getByText(longTag)).toBeInTheDocument();
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('keeps the highlight grid layout unaffected by a mix of published and non-published projects', async () => {
+      mockHomeRequests({
+        dashboard: {
+          ...dashboardResponse,
+          publishedProjects: [
+            dashboardResponse.publishedProjects[0],
+            { ...dashboardResponse.publishedProjects[1], visibility: 'DRAFT' },
+          ],
+        },
+      });
+
+      render(<HomePage />);
+
+      const list = await screen.findByRole('list', { name: 'Published project highlights' });
+      expect(list).toHaveClass('project-highlight-grid');
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    });
+  });
+
   describe('Story 9560156: project highlight cover images', () => {
     it.each([
       { role: 'visitor', sessionStatus: 401 },

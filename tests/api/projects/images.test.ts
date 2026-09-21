@@ -127,6 +127,109 @@ describe('project image gallery API', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'payload_too_large' }));
   });
 
+  it.each(['image/gif', 'image/webp'])('accepts %s images within the size limit', async (mimetype) => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([firstImage]);
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ originalname: 'anim.gif', mimetype })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('accepts an image exactly at the 10 MiB size limit', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([firstImage]);
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ size: 10 * 1024 * 1024 })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects the entire batch when one file in a mixed selection is an unsupported type', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [
+        imageFile({ originalname: 'screen.png', mimetype: 'image/png' }),
+        imageFile({ originalname: 'notes.txt', mimetype: 'text/plain' }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+  });
+
+  it('appends uploaded images after existing gallery images, continuing the order sequence', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany
+      .mockResolvedValueOnce([firstImage, secondImage])
+      .mockResolvedValueOnce([firstImage, secondImage, { id: 'image-3', projectId: 'project-1', url: 'data:image/png;base64,ZmFrZQ==', order: 2 }]);
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ originalname: 'new.png', mimetype: 'image/png' })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ projectId: 'project-1', order: 2 }),
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects a zero-byte file even with a valid image mime type', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile({ buffer: Buffer.alloc(0), size: 0 })],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'invalid_image_file' }));
+  });
+
+  it('requires at least one file to upload', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1' }, files: [] } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'validation_error' }));
+  });
+
   it('requires a valid authenticated session', async () => {
     const { deps } = setup({
       validateSession: jest.fn().mockReturnValue({ valid: false, reason: 'missing_session' }),
