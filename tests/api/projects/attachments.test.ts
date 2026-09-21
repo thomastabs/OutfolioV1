@@ -260,6 +260,119 @@ describe('project .oml attachments API', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
   });
 
+  it('uploads multiple .oml files in one batch and extracts metadata for each', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [
+        omlFile({
+          originalname: 'orders-portal.oml',
+          buffer: Buffer.from('<moduleName>OrdersPortal</moduleName><version>1.2.3</version>'),
+        }),
+        omlFile({
+          originalname: 'checkout-flow.oml',
+          buffer: Buffer.from('<moduleName>CheckoutFlow</moduleName><version>2.0.0</version>'),
+        }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.omlMetadata.upsert).toHaveBeenCalledTimes(2);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('accepts .oml files with uppercase and mixed-case extensions and still extracts metadata', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'ORDERS-PORTAL.OmL' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename: 'ORDERS-PORTAL.OmL', isOmlFile: true }),
+    }));
+    expect(prisma.omlMetadata.upsert).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('accepts an .oml file with the text/xml MIME type', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ mimetype: 'text/xml' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it.each(['CORRUPT', 'Invalid_Oml', 'NOT AN OML'])(
+    'rejects .oml content containing the suspicious keyword "%s" regardless of case',
+    async (keyword) => {
+      const { deps, prisma } = setup();
+      const handler = createProjectAttachmentUploadHandler(deps as never);
+      const res = mockResponse();
+
+      await handler({
+        headers: {},
+        params: { id: 'project-1' },
+        files: [omlFile({ buffer: Buffer.from(`export content is ${keyword} here`) })],
+      } as never, res as never);
+
+      expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(422);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'invalid_oml_file' }));
+    },
+  );
+
+  it('rejects a zero-byte .oml file', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ buffer: Buffer.alloc(0), size: 0 })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'invalid_oml_file' }));
+  });
+
+  it('rejects the entire batch atomically when one .oml file among valid files is corrupted', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [
+        { originalname: 'architecture.pdf', mimetype: 'application/pdf', size: 42, buffer: Buffer.from('%PDF-1.4') },
+        omlFile({ originalname: 'broken.oml', buffer: Buffer.from('this content is corrupted') }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(prisma.omlMetadata.upsert).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'invalid_oml_file' }));
+  });
+
   it('rejects supported attachment extensions with unsupported MIME types', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);
