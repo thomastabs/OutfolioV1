@@ -21,6 +21,21 @@ describe('GitHub Actions deployment workflow', () => {
     expect(source).toContain('vercel deploy --prod');
   });
 
+  it('runs database migrations against the pulled production environment before deploying', () => {
+    const source = fs.readFileSync(workflowPath, 'utf8');
+
+    const pullIndex = source.indexOf('vercel pull');
+    const migrateIndex = source.indexOf('prisma migrate deploy');
+    const deployIndex = source.indexOf('vercel deploy --prod');
+
+    expect(pullIndex).toBeGreaterThan(-1);
+    expect(migrateIndex).toBeGreaterThan(-1);
+    expect(deployIndex).toBeGreaterThan(-1);
+    expect(migrateIndex).toBeGreaterThan(pullIndex);
+    expect(deployIndex).toBeGreaterThan(migrateIndex);
+    expect(source).toContain('.vercel/.env.production.local');
+  });
+
   it('references deployment secrets without committing secret values', () => {
     const source = fs.readFileSync(workflowPath, 'utf8');
 
