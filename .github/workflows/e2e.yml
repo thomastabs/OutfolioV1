@@ -62,7 +62,7 @@ jobs:
         run: pnpm build
 
       - name: Start the app server
-        run: pnpm start &
+        run: nohup pnpm start > server.log 2>&1 &
 
       - name: Wait for the server to be ready
         run: |
@@ -79,10 +79,18 @@ jobs:
       - name: Run Playwright E2E test suite
         run: pnpm test:e2e
 
-      - name: Upload Playwright report
-        if: failure()
+      - name: Show server log
+        if: always()
+        run: cat server.log || echo "No server log was produced."
+
+      - name: Upload Playwright report and server log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
+            server.log
           retention-days: 7
+          if-no-files-found: ignore
