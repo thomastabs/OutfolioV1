@@ -47,7 +47,7 @@ test('registers, logs in, creates and publishes a project, then views it publicl
   await test.step('Log out so the login flow can be exercised separately', async () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Log out' }).click();
-    await expect(page.getByRole('link', { name: 'Register' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Register', exact: true })).toBeVisible();
   });
 
   await test.step('Log in with the registered account', async () => {
