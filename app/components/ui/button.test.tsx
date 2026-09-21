@@ -16,4 +16,19 @@ describe('buttonVariants', () => {
     expect(buttonVariants({ variant: 'secondary' })).toContain('bg-card');
     expect(buttonVariants({ variant: 'destructive' })).toContain('bg-destructive');
   });
+
+  it('lets long labels (e.g. "Unpublish {project title}") wrap instead of overflowing on narrow viewports', () => {
+    // Tailwind's preflight sets `-webkit-appearance: button`, not `none`,
+    // so WebKit renders an un-appearance-reset button as a native control
+    // that keeps its label on one line regardless of available width -
+    // it doesn't overflow in Chromium, only WebKit (caught by the iPhone
+    // 13 / iPad Pro 11 E2E projects, Story 9563524). appearance-none plus
+    // an explicit whitespace-normal neutralizes that, and a min-h- (not
+    // fixed h-) size lets a wrapped two-line label grow the button instead
+    // of being clipped.
+    const classes = buttonVariants({ size: 'default' });
+    expect(classes).toContain('appearance-none');
+    expect(classes).toContain('whitespace-normal');
+    expect(classes).not.toMatch(/(?<!min-)\bh-10\b/);
+  });
 });
