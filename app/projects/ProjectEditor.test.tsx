@@ -607,6 +607,79 @@ describe('ProjectEditor', () => {
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
   });
 
+  it('prevents supported attachment extensions with unsupported MIME types before upload', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), new File(['not a pdf'], 'architecture.pdf', {
+      type: 'text/plain',
+    }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.');
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('prevents oversized attachments before upload', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+    const oversizedAttachment = new File(['small body'], 'large.pdf', { type: 'application/pdf' });
+    Object.defineProperty(oversizedAttachment, 'size', { value: 50 * 1024 * 1024 + 1 });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), oversizedAttachment);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Attachments must be 50 MiB or smaller.');
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+  });
+
   it('prevents oversized images before upload', async () => {
     const user = userEvent.setup();
     jest.spyOn(global, 'fetch').mockImplementation(async (url) => {

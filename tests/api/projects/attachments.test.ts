@@ -191,6 +191,30 @@ describe('project .oml attachments API', () => {
     }));
   });
 
+  it('rejects supported attachment extensions with unsupported MIME types', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      files: [{
+        originalname: 'architecture.pdf',
+        mimetype: 'text/plain',
+        size: 42,
+        buffer: Buffer.from('not a pdf'),
+      }],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: 'unsupported_media_type',
+      message: 'The .pdf file type is not supported.',
+    }));
+  });
+
   it('rejects oversized .oml uploads', async () => {
     const { deps } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);

@@ -75,6 +75,13 @@ const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const MAX_ATTACHMENT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const ATTACHMENT_EXTENSIONS = new Set(['.oml', '.pdf', '.txt', '.md', '.zip']);
+const ATTACHMENT_MIME_TYPES: Record<string, Set<string>> = {
+  '.oml': new Set(['', 'application/octet-stream', 'application/zip', 'application/x-zip-compressed', 'text/xml', 'application/xml']),
+  '.pdf': new Set(['application/pdf']),
+  '.txt': new Set(['', 'text/plain']),
+  '.md': new Set(['', 'text/markdown', 'text/plain']),
+  '.zip': new Set(['application/octet-stream', 'application/zip', 'application/x-zip-compressed']),
+};
 const ATTACHMENT_ACCEPT = '.oml,.pdf,.txt,.md,.zip';
 
 function initialState(project?: ProjectData) {
@@ -385,7 +392,10 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   }
 
   function validateAttachmentFiles(files: File[]) {
-    const unsupported = files.find((file) => !ATTACHMENT_EXTENSIONS.has(attachmentExtension(file.name)));
+    const unsupported = files.find((file) => {
+      const extension = attachmentExtension(file.name);
+      return !ATTACHMENT_EXTENSIONS.has(extension) || !ATTACHMENT_MIME_TYPES[extension]?.has(file.type);
+    });
     if (unsupported) {
       return 'Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.';
     }
@@ -415,6 +425,12 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
 
   async function handleAttachmentUpload() {
     if (!project?.id || selectedAttachmentFiles.length === 0) return;
+
+    const validationError = validateAttachmentFiles(selectedAttachmentFiles);
+    if (validationError) {
+      setAttachmentError(validationError);
+      return;
+    }
 
     setIsUploadingAttachments(true);
     setAttachmentError('');
@@ -786,7 +802,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
             <Button
               type="button"
               onClick={handleImageUpload}
-              disabled={selectedImageFiles.length === 0 || isUploadingImages}
+              disabled={selectedImageFiles.length === 0 || isUploadingImages || Boolean(imageError)}
               className="w-full sm:w-auto"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
