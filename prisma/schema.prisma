@@ -55,8 +55,33 @@ model Project {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  attachments    ProjectAttachment[]
 
   @@unique([ownerId, slug])
+}
+
+model ProjectAttachment {
+  id          String       @id @default(cuid())
+  projectId   String
+  filename    String
+  url         String
+  fileType    String       @default("")
+  fileSize    Int          @default(0)
+  isOmlFile   Boolean      @default(false)
+  order       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  omlMetadata OmlMetadata?
+
+  @@index([projectId])
+}
+
+model OmlMetadata {
+  id           String            @id @default(cuid())
+  attachmentId String            @unique
+  moduleName   String
+  version      String
+  attachment   ProjectAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
 }
 
 enum ProjectVisibility {

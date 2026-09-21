@@ -27,6 +27,14 @@ type CookieOptions = {
   expires?: Date;
 };
 
+type UploadedFile = {
+  fieldname: string;
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
+
 const requiredDeploymentEnv = [
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
@@ -76,6 +84,38 @@ async function bodyObject(request: NextRequest) {
 
   try {
     return await request.json();
+  } catch {
+    return undefined;
+  }
+}
+
+async function multipartFiles(request: NextRequest): Promise<UploadedFile[] | undefined> {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return undefined;
+  }
+
+  const contentType = request.headers.get('content-type') ?? '';
+  if (!contentType.includes('multipart/form-data')) {
+    return undefined;
+  }
+
+  try {
+    const formData = await request.formData();
+    const files: UploadedFile[] = [];
+
+    for (const [fieldname, value] of formData.entries()) {
+      if (typeof value === 'string') continue;
+      const buffer = Buffer.from(await value.arrayBuffer());
+      files.push({
+        fieldname,
+        originalname: value.name,
+        mimetype: value.type || 'application/octet-stream',
+        size: value.size,
+        buffer,
+      });
+    }
+
+    return files;
   } catch {
     return undefined;
   }
@@ -179,6 +219,42 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
     }
   }
 
+  if (first === 'projects' && second && third === 'attachments') {
+    if (method === 'GET' && !fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentListHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'POST' && !fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentUploadHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'PUT' && fourth === 'order') {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentOrderHandler'),
+        params: { id: second },
+      };
+    }
+    if (method === 'POST' && fourth === 'oml') {
+      const fifth = segments[4];
+      if (fifth === 'metadata') {
+        return {
+          loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectOmlMetadataHandler'),
+          params: { id: second },
+        };
+      }
+    }
+    if (method === 'DELETE' && fourth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'projectAttachmentDeleteHandler'),
+        params: { id: second, attachmentId: fourth },
+      };
+    }
+  }
+
   if (method === 'POST' && first === 'projects' && second && third === 'publish' && !fourth) {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/projects/publish'), 'projectPublishHandler'),
@@ -233,6 +309,7 @@ async function invokeApiHandler(request: NextRequest, context: RouteContext) {
 
   const req = {
     body: await bodyObject(request),
+    files: await multipartFiles(request),
     headers: {
       cookie: request.headers.get('cookie') ?? '',
     },

@@ -260,4 +260,158 @@ describe('ProjectEditor', () => {
 
     expect(await screen.findByText('Summary is required before publishing.')).toBeInTheDocument();
   });
+
+  it('uploads and displays a valid .oml attachment with extracted metadata', async () => {
+    const user = userEvent.setup();
+    const attachment = {
+      id: 'attachment-1',
+      filename: 'orders-portal.oml',
+      url: '/api/v1/projects/project-1/attachments/attachment-1/download',
+      fileSize: 128,
+      metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments' && init?.method === 'POST') {
+        expect(init.body).toBeInstanceOf(FormData);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [attachment] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText(/\.oml file/i),
+      new File(['<moduleName>OrdersPortal</moduleName><version>1.2.3</version>'], 'orders-portal.oml', {
+        type: 'application/octet-stream',
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload \.oml/i }));
+
+    expect(await screen.findByText('The .oml attachment was uploaded and validated.')).toBeInTheDocument();
+    expect(screen.getByText('orders-portal.oml')).toBeInTheDocument();
+    expect(screen.getByText('OrdersPortal')).toBeInTheDocument();
+    expect(screen.getByText('1.2.3')).toBeInTheDocument();
+  });
+
+  it('shows accessible feedback when an .oml upload is rejected', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments' && init?.method === 'POST') {
+        return {
+          ok: false,
+          status: 422,
+          json: async () => ({
+            error: 'invalid_oml_file',
+            message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/\.oml file/i), new File(['corrupted invalid_oml'], 'broken.oml'));
+    await user.click(screen.getByRole('button', { name: /upload \.oml/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+    );
+  });
+
+  it('lists, deletes, and reorders .oml attachments in edit mode', async () => {
+    const user = userEvent.setup();
+    const firstAttachment = {
+      id: 'attachment-1',
+      filename: 'orders-portal.oml',
+      url: '/download/1',
+      fileSize: 128,
+      metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+    };
+    const secondAttachment = {
+      id: 'attachment-2',
+      filename: 'crm-app.oml',
+      url: '/download/2',
+      fileSize: 256,
+      metadata: { moduleName: 'CRMApp', version: '2.0.0' },
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [firstAttachment, secondAttachment] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments/order' && init?.method === 'PUT') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [secondAttachment, firstAttachment] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments/attachment-1' && init?.method === 'DELETE') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    expect(await screen.findByText('orders-portal.oml')).toBeInTheDocument();
+    expect(screen.getByText('crm-app.oml')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /move crm-app\.oml up/i }));
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/attachments/order', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: ['attachment-2', 'attachment-1'] }),
+    });
+
+    await user.click(screen.getByRole('button', { name: /delete orders-portal\.oml/i }));
+    expect(await screen.findByText('The .oml attachment was deleted.')).toBeInTheDocument();
+    expect(screen.queryByText('orders-portal.oml')).not.toBeInTheDocument();
+  });
 });

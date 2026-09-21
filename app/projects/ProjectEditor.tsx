@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { EyeOff, Save, Send } from 'lucide-react';
+import { ArrowDown, ArrowUp, EyeOff, FileArchive, Save, Send, Trash2, Upload } from 'lucide-react';
 import { ValidationMessage } from '../components/ValidationMessage';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -25,6 +25,25 @@ type ProjectEditorProps = {
   project?: ProjectData;
   onProjectCreated?(project: ProjectSummary): void;
   onProjectUpdated?(project: ProjectData): void;
+};
+
+type OmlAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  fileType?: string;
+  fileSize?: number;
+  order?: number;
+  metadata?: {
+    moduleName: string;
+    version: string;
+  } | null;
+};
+
+type AttachmentResponse = {
+  attachments?: OmlAttachment[];
+  error?: string;
+  message?: string;
 };
 
 type FieldErrors = Partial<Record<
@@ -71,6 +90,13 @@ function isHttpUrl(value: string) {
   }
 }
 
+function formatFileSize(size = 0) {
+  if (size <= 0) return 'Unknown size';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: ProjectEditorProps) {
   const isEditMode = Boolean(project);
   const [title, setTitle] = useState(() => initialState(project).title);
@@ -90,6 +116,13 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibilityAction, setVisibilityAction] = useState<'publish' | 'unpublish' | null>(null);
+  const [omlAttachments, setOmlAttachments] = useState<OmlAttachment[]>([]);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
+  const [selectedOmlFile, setSelectedOmlFile] = useState<File | null>(null);
+  const [isUploadingOml, setIsUploadingOml] = useState(false);
+  const [attachmentMessage, setAttachmentMessage] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
+  const [omlInputKey, setOmlInputKey] = useState(0);
 
   useEffect(() => {
     const nextState = initialState(project);
@@ -109,6 +142,47 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     setFieldErrors({});
     setMessage('');
   }, [project]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAttachments(projectId: string) {
+      setIsLoadingAttachments(true);
+      setAttachmentError('');
+      setAttachmentMessage('');
+
+      try {
+        const response = await fetch(`/api/v1/projects/${projectId}/attachments`);
+        if (!response?.ok) return;
+        const data = await response.json() as AttachmentResponse;
+        if (!ignore) {
+          setOmlAttachments(Array.isArray(data.attachments) ? data.attachments : []);
+        }
+      } catch {
+        if (!ignore) {
+          setAttachmentError('Could not load .oml attachments.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingAttachments(false);
+        }
+      }
+    }
+
+    if (project?.id) {
+      loadAttachments(project.id);
+    } else {
+      setOmlAttachments([]);
+      setSelectedOmlFile(null);
+      setAttachmentError('');
+      setAttachmentMessage('');
+      setIsLoadingAttachments(false);
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [project?.id]);
 
   function validate() {
     const errors: FieldErrors = {};
@@ -238,6 +312,103 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     }
   }
 
+  function handleOmlFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const [file] = Array.from(event.target.files ?? []);
+    setSelectedOmlFile(file ?? null);
+    setAttachmentError('');
+    setAttachmentMessage('');
+  }
+
+  async function handleOmlUpload() {
+    if (!project?.id || !selectedOmlFile) return;
+
+    setIsUploadingOml(true);
+    setAttachmentError('');
+    setAttachmentMessage('Uploading .oml file...');
+
+    const formData = new FormData();
+    formData.append('files', selectedOmlFile);
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json() as AttachmentResponse;
+
+      if (!response.ok) {
+        setAttachmentMessage('');
+        setAttachmentError(
+          data.message ??
+          (data.error === 'invalid_oml_file'
+            ? 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.'
+            : 'Could not upload the .oml attachment.'),
+        );
+        return;
+      }
+
+      const uploaded = Array.isArray(data.attachments) ? data.attachments : [];
+      setOmlAttachments((current) => [...current, ...uploaded]);
+      setSelectedOmlFile(null);
+      setOmlInputKey((key) => key + 1);
+      setAttachmentMessage('The .oml attachment was uploaded and validated.');
+    } catch {
+      setAttachmentMessage('');
+      setAttachmentError('Could not upload the .oml attachment.');
+    } finally {
+      setIsUploadingOml(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!project?.id) return;
+
+    setAttachmentError('');
+    setAttachmentMessage('');
+
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        setAttachmentError('Could not delete the .oml attachment.');
+        return;
+      }
+
+      setOmlAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+      setAttachmentMessage('The .oml attachment was deleted.');
+    } catch {
+      setAttachmentError('Could not delete the .oml attachment.');
+    }
+  }
+
+  async function persistAttachmentOrder(nextAttachments: OmlAttachment[]) {
+    if (!project?.id) return;
+
+    try {
+      await fetch(`/api/v1/projects/${project.id}/attachments/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextAttachments.map((attachment) => attachment.id) }),
+      });
+    } catch {
+      setAttachmentError('Could not save the attachment order.');
+    }
+  }
+
+  function handleMoveAttachment(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= omlAttachments.length) return;
+
+    const nextAttachments = [...omlAttachments];
+    [nextAttachments[index], nextAttachments[targetIndex]] = [nextAttachments[targetIndex], nextAttachments[index]];
+    setOmlAttachments(nextAttachments);
+    setAttachmentMessage('Attachment order updated.');
+    setAttachmentError('');
+    persistAttachmentOrder(nextAttachments);
+  }
+
   return (
     <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div className="grid gap-2">
@@ -355,6 +526,123 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
           <span className="text-sm font-semibold">Published at</span>
           <Badge className="w-fit rounded-full" variant="success">{project.publishedAt}</Badge>
         </div>
+      ) : null}
+      {isEditMode ? (
+        <section className="rounded-xl border border-border bg-card/70 p-4 shadow-sm md:col-span-2 xl:col-span-3" aria-labelledby="project-oml-attachments-heading">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 id="project-oml-attachments-heading" className="flex items-center gap-2 text-base font-semibold">
+                <FileArchive className="h-4 w-4 text-primary" aria-hidden="true" />
+                OutSystems .oml attachments
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload a module export to preserve the technical artifact behind this case study.
+              </p>
+            </div>
+            {isLoadingAttachments ? (
+              <Badge className="w-fit rounded-full" variant="secondary">Loading attachments...</Badge>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-border bg-background/80 p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div className="grid gap-2">
+              <label className="text-sm font-semibold" htmlFor="project-oml-file">.oml file</label>
+              <input
+                key={omlInputKey}
+                id="project-oml-file"
+                type="file"
+                accept=".oml"
+                className="min-h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                onChange={handleOmlFileChange}
+                aria-describedby={attachmentError ? 'project-oml-error' : undefined}
+                aria-invalid={attachmentError ? 'true' : undefined}
+              />
+              {selectedOmlFile ? (
+                <p className="text-xs font-medium text-muted-foreground">
+                  Selected {selectedOmlFile.name} ({formatFileSize(selectedOmlFile.size)})
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              onClick={handleOmlUpload}
+              disabled={!selectedOmlFile || isUploadingOml}
+              className="w-full sm:w-auto"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              {isUploadingOml ? 'Uploading...' : 'Upload .oml'}
+            </Button>
+          </div>
+
+          <div className="mt-3" aria-live="polite">
+            {attachmentError ? <ValidationMessage id="project-oml-error" message={attachmentError} /> : null}
+            {attachmentMessage && !attachmentError ? (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800" role="status">
+                {attachmentMessage}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {omlAttachments.length === 0 && !isLoadingAttachments ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+                No .oml attachments yet.
+              </p>
+            ) : null}
+            {omlAttachments.map((attachment, index) => (
+              <article key={attachment.id} className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <h4 className="truncate text-sm font-semibold">{attachment.filename}</h4>
+                  <dl className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-3">
+                    <div>
+                      <dt className="font-semibold text-foreground">Module</dt>
+                      <dd>{attachment.metadata?.moduleName ?? 'Unknown module'}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-foreground">Version</dt>
+                      <dd>{attachment.metadata?.version ?? 'unknown'}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-foreground">Size</dt>
+                      <dd>{formatFileSize(attachment.fileSize)}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleMoveAttachment(index, -1)}
+                    disabled={index === 0}
+                    aria-label={`Move ${attachment.filename} up`}
+                  >
+                    <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleMoveAttachment(index, 1)}
+                    disabled={index === omlAttachments.length - 1}
+                    aria-label={`Move ${attachment.filename} down`}
+                  >
+                    <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteAttachment(attachment.id)}
+                    aria-label={`Delete ${attachment.filename}`}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
       <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
         {message ? (
