@@ -229,4 +229,54 @@ describe('GET /api/v1/public/project/:slug/images', () => {
       message: 'Project not found.',
     });
   });
+
+  it('returns images with duplicate order values without erroring', async () => {
+    const { prisma, handler, res } = setup();
+    prisma.projectImage.findMany.mockResolvedValue([
+      { id: 'image-1', projectId: 'project-1', url: 'data:image/png;base64,one', order: 0 },
+      { id: 'image-2', projectId: 'project-1', url: 'data:image/png;base64,two', order: 0 },
+    ]);
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      images: [
+        { id: 'image-1', url: 'data:image/png;base64,one', order: 0 },
+        { id: 'image-2', url: 'data:image/png;base64,two', order: 0 },
+      ],
+    });
+  });
+
+  it('returns an image with an empty url field as-is rather than filtering it out', async () => {
+    const { prisma, handler, res } = setup();
+    prisma.projectImage.findMany.mockResolvedValue([
+      { id: 'image-1', projectId: 'project-1', url: '', order: 0 },
+    ]);
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      images: [{ id: 'image-1', url: '', order: 0 }],
+    });
+  });
+
+  it('returns all images for a project with a large gallery', async () => {
+    const { prisma, handler, res } = setup();
+    const manyImages = Array.from({ length: 20 }, (_, index) => ({
+      id: `image-${index}`,
+      projectId: 'project-1',
+      url: `data:image/png;base64,img${index}`,
+      order: index,
+    }));
+    prisma.projectImage.findMany.mockResolvedValue(manyImages);
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      images: manyImages.map(({ id, url, order }) => ({ id, url, order })),
+    });
+  });
 });

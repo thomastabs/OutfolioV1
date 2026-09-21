@@ -114,6 +114,84 @@ describe('PublicProjectPage', () => {
     expect(galleryImages[1]).toHaveAttribute('src', 'data:image/png;base64,one');
   });
 
+  it('renders a large number of gallery images without truncating', async () => {
+    const manyImages = {
+      images: Array.from({ length: 20 }, (_, index) => ({
+        id: `image-${index}`,
+        url: `data:image/png;base64,img${index}`,
+        order: index,
+      })),
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => manyImages } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    const galleryImages = await screen.findAllByRole('img', { name: /portfolio builder gallery image/i });
+    expect(galleryImages).toHaveLength(20);
+  });
+
+  it('renders gallery images with duplicate order values without crashing', async () => {
+    const duplicateOrderImages = {
+      images: [
+        { id: 'image-1', url: 'data:image/png;base64,one', order: 0 },
+        { id: 'image-2', url: 'data:image/png;base64,two', order: 0 },
+      ],
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => duplicateOrderImages } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    const galleryImages = await screen.findAllByRole('img', { name: /portfolio builder gallery image/i });
+    expect(galleryImages).toHaveLength(2);
+  });
+
+  it('renders without crashing when a gallery image has an empty url', async () => {
+    const emptyUrlImages = {
+      images: [{ id: 'image-1', url: '', order: 0 }],
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => emptyUrlImages } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(await screen.findByRole('img', { name: 'Portfolio Builder gallery image 1' })).toHaveAttribute('src', '');
+  });
+
+  it('renders gallery images with special characters in the project title alt text safely', async () => {
+    const specialTitleProject = { ...projectResponse, title: 'R&D <Beta> "Launch"' };
+    const oneImage = { images: [{ id: 'image-1', url: 'data:image/png;base64,one', order: 0 }] };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => oneImage } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => specialTitleProject } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(
+      await screen.findByRole('img', { name: 'R&D <Beta> "Launch" gallery image 1' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows a gallery error message when public project images cannot be loaded', async () => {
     jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
       if (url === '/api/v1/public/project/portfolio-builder/images') {
