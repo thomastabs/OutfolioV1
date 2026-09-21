@@ -96,7 +96,7 @@ export default function ProjectsPage() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-10">
-      <section className="mx-auto grid max-w-7xl gap-8">
+      <section className="mx-auto grid max-w-7xl gap-8 [&>*]:min-w-0">
         <BackButton />
         <header className="rounded-3xl border border-border bg-card p-8 shadow-polish">
           <Badge className="mb-4 w-fit rounded-full shadow" variant="outline">

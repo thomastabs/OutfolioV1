@@ -124,7 +124,7 @@ export function ProjectList({
 
   return (
     <section className="grid gap-5 rounded-3xl border border-border bg-card p-6 shadow" aria-label="Project list">
-      <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid gap-5 [&>*]:min-w-0 md:grid-cols-2 xl:grid-cols-3">
         {visibleProjects.map((project) => (
           <li key={project.id}>
             <Card className="h-full rounded-2xl shadow transition hover:-translate-y-0.5 hover:shadow-polish">

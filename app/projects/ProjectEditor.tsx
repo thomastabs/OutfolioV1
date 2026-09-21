@@ -645,7 +645,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
   }
 
   return (
-    <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
+    <form className="grid gap-5 [&>*]:min-w-0 md:grid-cols-2 xl:grid-cols-3" aria-label="Project editor" onSubmit={handleSubmit} noValidate>
       <div className="grid gap-2">
         <label className="text-sm font-semibold" htmlFor="project-title">Title</label>
         <Input
@@ -742,7 +742,7 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
         <label className="text-sm font-semibold" htmlFor="project-visibility">Visibility</label>
         <select
           id="project-visibility"
-          className="h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm"
+          className="h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm"
           value={visibility}
           onChange={(event) => setVisibility(event.target.value)}
           aria-invalid={fieldErrors.visibility ? 'true' : undefined}

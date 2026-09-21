@@ -36,22 +36,25 @@ async function expectNoHorizontalOverflow(page: Page) {
     const hasOverflow = document.documentElement.scrollWidth > clientWidth + 1;
     if (!hasOverflow) return { hasOverflow, culprit: '' };
 
-    // Every element's own getBoundingClientRect() stayed within the
-    // viewport (grid stretch resizes each item's outer box to fit its
-    // track), so the overflow must be an element whose CONTENT overflows
-    // ITSELF - i.e. scrollWidth > clientWidth on the element itself, with
-    // overflow:visible (the default) leaking it up to the document. That's
-    // the real signature of a shrunk flex/grid item whose un-wrappable
-    // content (a form control, an unbroken string) didn't shrink with it.
+    // scrollWidth > clientWidth on an element whose own overflow is
+    // "hidden"/"clip" is a red herring: that's exactly how visually-hidden
+    // (sr-only) accessible text is built - the box correctly clips its
+    // own content, so it can't be leaking anything out. Only an element
+    // with the default overflow:visible can actually push the document
+    // wider than the viewport this way.
     const selfOverflowing = Array.from(document.querySelectorAll('*'))
-      .filter((el) => el.scrollWidth > el.clientWidth + 1)
+      .filter((el) => {
+        if (el.scrollWidth <= el.clientWidth + 1) return false;
+        const style = getComputedStyle(el);
+        return style.overflowX !== 'hidden' && style.overflowX !== 'clip' && style.overflow !== 'hidden' && style.overflow !== 'clip';
+      })
       .map((el) => {
         const classAttr = el.getAttribute('class');
         const selector = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${classAttr ? `.${classAttr.trim().split(/\s+/).join('.')}` : ''}`;
         const text = (el.textContent || '').trim().slice(0, 50);
         return `${selector} scrollWidth=${el.scrollWidth}px clientWidth=${el.clientWidth}px text="${text}"`;
       });
-    return { hasOverflow, culprit: selfOverflowing.length > 0 ? selfOverflowing.join(' || ') : 'no element has scrollWidth > clientWidth on itself' };
+    return { hasOverflow, culprit: selfOverflowing.length > 0 ? selfOverflowing.join(' || ') : 'no un-clipped element has scrollWidth > clientWidth on itself' };
   });
 
   expect(overflowInfo.hasOverflow, `page should not overflow horizontally at this viewport; widest offender: ${overflowInfo.culprit}`).toBe(false);
