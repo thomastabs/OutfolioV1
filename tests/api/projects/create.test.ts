@@ -7,6 +7,13 @@ function mockResponse() {
   };
 }
 
+function fakeStorage() {
+  return {
+    uploadProjectMedia: jest.fn(async (key: string) => key),
+    resolveMediaUrl: jest.fn(async (value: string) => (value.startsWith('projects/') ? `https://signed.example/${value}` : value)),
+  };
+}
+
 describe('project slug generation', () => {
   it('converts titles to lowercase URL slugs', () => {
     expect(slugifyProjectTitle('  My Great Project!  ')).toBe('my-great-project');
@@ -73,7 +80,8 @@ describe('POST /api/v1/projects', () => {
       email: 'ada@example.com',
       expiresAt: '2026-10-15T12:00:00.000Z',
     });
-    const deps = { prisma, validateSession, ...overrides };
+    const storage = fakeStorage();
+    const deps = { prisma, validateSession, storage, ...overrides };
     const handler = createProjectHandler(deps);
     const res = mockResponse();
 
@@ -209,9 +217,19 @@ describe('POST /api/v1/projects', () => {
     } as never, res as never);
 
     expect(deps.prisma.$transaction).toHaveBeenCalled();
+    expect(deps.storage.uploadProjectMedia).toHaveBeenCalledWith(
+      expect.stringMatching(/^projects\/.+\.png$/),
+      Buffer.from('cover'),
+      'image/png',
+    );
+    expect(deps.storage.uploadProjectMedia).toHaveBeenCalledWith(
+      expect.stringMatching(/^projects\/.+\.webp$/),
+      Buffer.from('screen'),
+      'image/webp',
+    );
     expect(deps.prisma.project.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        coverImageUrl: 'data:image/png;base64,Y292ZXI=',
+        coverImageUrl: expect.stringMatching(/^projects\/.+\.png$/),
         ownerId: 'user-1',
         slug: 'portfolio-builder',
       }),
@@ -219,7 +237,7 @@ describe('POST /api/v1/projects', () => {
     expect(deps.prisma.projectImage.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: 'project-1',
-        url: 'data:image/webp;base64,c2NyZWVu',
+        url: expect.stringMatching(/^projects\/.+\.webp$/),
         order: 0,
       }),
     });
@@ -241,8 +259,8 @@ describe('POST /api/v1/projects', () => {
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      coverImageUrl: 'data:image/png;base64,Y292ZXI=',
-      images: [expect.objectContaining({ url: 'data:image/webp;base64,c2NyZWVu', order: 0 })],
+      coverImageUrl: expect.stringMatching(/^https:\/\/signed\.example\/projects\/.+\.png$/),
+      images: [expect.objectContaining({ url: expect.stringMatching(/^https:\/\/signed\.example\/projects\/.+\.webp$/), order: 0 })],
       attachments: [expect.objectContaining({
         filename: 'orders.oml',
         isOmlFile: true,
@@ -342,7 +360,7 @@ describe('GET /api/v1/projects', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    const handler = createProjectListHandler({ prisma, validateSession });
+    const handler = createProjectListHandler({ prisma, validateSession, storage: fakeStorage() });
     const res = mockResponse();
 
     await handler({ headers: { cookie: 'next-auth.session-token=valid' } } as never, res as never);
@@ -364,7 +382,7 @@ describe('GET /api/v1/projects', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    const handler = createProjectListHandler({ prisma, validateSession });
+    const handler = createProjectListHandler({ prisma, validateSession, storage: fakeStorage() });
     const res = mockResponse();
 
     await handler({ headers: { cookie: 'next-auth.session-token=valid' } } as never, res as never);

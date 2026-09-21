@@ -41,13 +41,19 @@ type PublicProjectAttachmentRecord = {
   omlMetadata?: { moduleName: string; version: string } | null;
 };
 
+type StorageDependency = {
+  storage: {
+    resolveMediaUrl(value: string): Promise<string>;
+  };
+};
+
 type PublicProjectDependencies = {
   prisma: {
     project: {
       findFirst(args: unknown): Promise<any>;
     };
   };
-};
+} & StorageDependency;
 
 type PublicProjectImagesDependencies = {
   prisma: {
@@ -58,7 +64,7 @@ type PublicProjectImagesDependencies = {
       findMany(args: { where: { projectId: string }; orderBy: { order: 'asc' } }): Promise<PublicProjectImageRecord[]>;
     };
   };
-};
+} & StorageDependency;
 
 type PublicProjectAttachmentsDependencies = {
   prisma: {
@@ -82,7 +88,7 @@ function notFound(res: Response) {
   });
 }
 
-function serializeProject(project: PublicProjectRecord) {
+async function serializeProject(storage: StorageDependency['storage'], project: PublicProjectRecord) {
   return {
     id: project.id,
     title: project.title,
@@ -92,7 +98,7 @@ function serializeProject(project: PublicProjectRecord) {
     role: project.role,
     status: project.status,
     tags: project.tags ?? [],
-    coverImageUrl: project.coverImageUrl ?? '',
+    coverImageUrl: await storage.resolveMediaUrl(project.coverImageUrl ?? ''),
     problem: project.problem ?? '',
     features: project.features ?? '',
     technicalNotes: project.technicalNotes ?? '',
@@ -107,10 +113,10 @@ function serializeProject(project: PublicProjectRecord) {
   };
 }
 
-function serializeImage(image: PublicProjectImageRecord) {
+async function serializeImage(storage: StorageDependency['storage'], image: PublicProjectImageRecord) {
   return {
     id: image.id,
-    url: image.url,
+    url: await storage.resolveMediaUrl(image.url),
     order: image.order ?? 0,
   };
 }
@@ -166,7 +172,7 @@ export function createPublicProjectHandler(deps: PublicProjectDependencies) {
         });
       }
 
-      return res.status(200).json(serializeProject(project));
+      return res.status(200).json(await serializeProject(deps.storage, project));
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -204,7 +210,7 @@ export function createPublicProjectImagesHandler(deps: PublicProjectImagesDepend
         orderBy: { order: 'asc' },
       });
 
-      return res.status(200).json({ images: images.map(serializeImage) });
+      return res.status(200).json({ images: await Promise.all(images.map((image) => serializeImage(deps.storage, image))) });
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -256,15 +262,15 @@ export function createPublicProjectAttachmentsHandler(deps: PublicProjectAttachm
 }
 
 export async function publicProjectHandler(req: Request, res: Response) {
-  const { prisma } = await import('@/src/lib/prisma');
+  const [{ prisma }, storage] = await Promise.all([import('@/src/lib/prisma'), import('@/src/lib/storage')]);
 
-  return createPublicProjectHandler({ prisma })(req, res);
+  return createPublicProjectHandler({ prisma, storage })(req, res);
 }
 
 export async function publicProjectImagesHandler(req: Request, res: Response) {
-  const { prisma } = await import('@/src/lib/prisma');
+  const [{ prisma }, storage] = await Promise.all([import('@/src/lib/prisma'), import('@/src/lib/storage')]);
 
-  return createPublicProjectImagesHandler({ prisma })(req, res);
+  return createPublicProjectImagesHandler({ prisma, storage })(req, res);
 }
 
 export async function publicProjectAttachmentsHandler(req: Request, res: Response) {

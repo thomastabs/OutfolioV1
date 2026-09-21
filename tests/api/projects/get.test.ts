@@ -37,7 +37,8 @@ describe('GET /api/v1/projects/:id', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    const deps = { prisma, validateSession, ...overrides };
+    const storage = { resolveMediaUrl: jest.fn(async (value: string) => value) };
+    const deps = { prisma, validateSession, storage, ...overrides };
     const handler = createProjectGetHandler(deps);
     const res = mockResponse();
 

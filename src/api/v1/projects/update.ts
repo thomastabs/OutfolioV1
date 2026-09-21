@@ -34,6 +34,9 @@ type ProjectUpdateDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+  storage: {
+    resolveMediaUrl(value: string): Promise<string>;
+  };
 };
 
 type ProjectUpdateInput = {
@@ -215,7 +218,7 @@ function serializeVisibility(value: string) {
   return value.toLowerCase();
 }
 
-function serializeProject(project: ProjectRecord) {
+async function serializeProject(storage: ProjectUpdateDependencies['storage'], project: ProjectRecord) {
   return {
     id: project.id,
     title: project.title,
@@ -225,7 +228,7 @@ function serializeProject(project: ProjectRecord) {
     role: project.role,
     status: project.status,
     tags: project.tags ?? [],
-    coverImageUrl: project.coverImageUrl ?? '',
+    coverImageUrl: await storage.resolveMediaUrl(project.coverImageUrl ?? ''),
     problem: project.problem ?? '',
     features: project.features ?? '',
     technicalNotes: project.technicalNotes ?? '',
@@ -296,12 +299,28 @@ export function createProjectUpdateHandler(deps: ProjectUpdateDependencies) {
         });
       }
 
+      // Story 9564046: coverImageUrl in a GET/list response may be a
+      // signed Storage URL resolved from a stored key (see
+      // src/lib/storage.ts). The edit form round-trips whatever it was
+      // shown back through this endpoint's free-text URL field when the
+      // owner saves without picking a new cover file. Since a signed URL
+      // is itself a valid https:// URL, persisting it verbatim would
+      // silently replace the stable Storage key with a URL that expires
+      // - detect that exact round-trip and keep the original stored
+      // value (the key) instead of overwriting it with its own resolved
+      // form.
+      const resolvedExistingCoverImageUrl = await deps.storage.resolveMediaUrl(project.coverImageUrl ?? '');
+      const coverImageUrl =
+        parsed.data.coverImageUrl === resolvedExistingCoverImageUrl
+          ? (project.coverImageUrl ?? '')
+          : parsed.data.coverImageUrl;
+
       const updatedProject = await deps.prisma.project.update({
         where: { id: projectId },
-        data: parsed.data,
+        data: { ...parsed.data, coverImageUrl },
       });
 
-      return res.status(200).json(serializeProject(updatedProject));
+      return res.status(200).json(await serializeProject(deps.storage, updatedProject));
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -312,10 +331,11 @@ export function createProjectUpdateHandler(deps: ProjectUpdateDependencies) {
 }
 
 export async function projectUpdateHandler(req: Request, res: Response) {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
 
-  return createProjectUpdateHandler({ prisma, validateSession })(req, res);
+  return createProjectUpdateHandler({ prisma, validateSession, storage })(req, res);
 }

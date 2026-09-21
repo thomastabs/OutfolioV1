@@ -3,6 +3,12 @@ import type { Request, Response } from 'express';
 
 const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
 
 type UploadedFile = {
   originalname: string;
@@ -30,6 +36,15 @@ type ProjectImageCreateInput = {
   order: number;
 };
 
+type StorageDependencies = {
+  uploadProjectMedia(key: string, buffer: Buffer, contentType: string): Promise<string>;
+  createProjectMediaSignedUrl(key: string): Promise<string>;
+  deleteProjectMedia(key: string): Promise<void>;
+  isStorageKey(value: string): boolean;
+  resolveMediaUrl(value: string): Promise<string>;
+  parseDataUrl(value: string): { mimeType: string; buffer: Buffer } | null;
+};
+
 type ImagesDependencies = {
   prisma: {
     project: {
@@ -44,6 +59,7 @@ type ImagesDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+  storage: StorageDependencies;
 };
 
 type AuthorizedProjectResult =
@@ -63,10 +79,10 @@ function filesFrom(req: Request) {
   return Array.isArray(files) ? files : [];
 }
 
-function imageResponse(image: ProjectImageRecord) {
+async function imageResponse(storage: StorageDependencies, image: ProjectImageRecord) {
   return {
     id: image.id,
-    url: image.url,
+    url: await storage.resolveMediaUrl(image.url),
     order: image.order ?? 0,
   };
 }
@@ -76,6 +92,10 @@ function missingOrInvalidAuth(res: Response) {
     error: 'missing_or_invalid_auth',
     message: 'Missing or invalid session.',
   });
+}
+
+function contentDispositionFilename(filename: string) {
+  return filename.replace(/["\\\r\n]/g, '_');
 }
 
 async function authorizeProject(
@@ -157,9 +177,20 @@ function validateImageFile(file: UploadedFile) {
   return { status: 200, body: { ok: true } };
 }
 
-function storedImageUrl(file: UploadedFile) {
-  const mimeType = file.mimetype || 'application/octet-stream';
-  return `data:${mimeType};base64,${file.buffer.toString('base64')}`;
+// Story 9564046: new uploads are written to Supabase Storage (a
+// `projects/{projectId}/images/{imageId}{ext}` object key is stored in
+// `url`, resolved to a signed URL at read time by resolveMediaUrl). Pre-
+// existing rows written before this story keep their base64 data-URL in
+// `url` unmigrated (SC-3) - resolveMediaUrl passes those through as-is.
+function storageKeyForImage(projectId: string, imageId: string, file: UploadedFile) {
+  const extension = IMAGE_EXTENSIONS[file.mimetype ?? ''] ?? '';
+  return `projects/${projectId}/images/${imageId}${extension}`;
+}
+
+async function storeImageFile(storage: StorageDependencies, projectId: string, imageId: string, file: UploadedFile) {
+  const contentType = file.mimetype || 'application/octet-stream';
+  const key = storageKeyForImage(projectId, imageId, file);
+  return storage.uploadProjectMedia(key, file.buffer, contentType);
 }
 
 async function orderedImages(deps: ImagesDependencies, projectId: string) {
@@ -167,7 +198,7 @@ async function orderedImages(deps: ImagesDependencies, projectId: string) {
     where: { projectId },
     orderBy: { order: 'asc' },
   });
-  return images.map(imageResponse);
+  return Promise.all(images.map((image) => imageResponse(deps.storage, image)));
 }
 
 async function nextOrder(deps: ImagesDependencies, projectId: string) {
@@ -217,11 +248,13 @@ export function createProjectImageUploadHandler(deps: ImagesDependencies) {
 
       let order = await nextOrder(deps, authorized.project.id);
       for (const file of files) {
+        const id = crypto.randomUUID();
+        const url = await storeImageFile(deps.storage, authorized.project.id, id, file);
         await deps.prisma.projectImage.create({
           data: {
-            id: crypto.randomUUID(),
+            id,
             projectId: authorized.project.id,
-            url: storedImageUrl(file),
+            url,
             order,
           },
         });
@@ -256,6 +289,9 @@ export function createProjectImageDeleteHandler(deps: ImagesDependencies) {
       }
 
       await deps.prisma.projectImage.delete({ where: { id: image.id } });
+      if (deps.storage.isStorageKey(image.url)) {
+        await deps.storage.deleteProjectMedia(image.url);
+      }
       return res.status(200).json({ success: true });
     } catch {
       return res.status(500).json({
@@ -307,12 +343,65 @@ export function createProjectImageOrderHandler(deps: ImagesDependencies) {
   };
 }
 
+// Story 9564046 (pack-3): streams the image file for the owner rather
+// than returning a URL, so a signed Storage URL is never handed to the
+// client directly for this authenticated path.
+export function createProjectImageDownloadHandler(deps: ImagesDependencies) {
+  return async function projectImageDownloadHandler(req: Request, res: Response) {
+    try {
+      const authorized = await authorizeProject(deps, req, res);
+      if (!authorized.ok) return authorized.response;
+
+      const imageId = imageIdFrom(req);
+      const image = await deps.prisma.projectImage.findFirst({
+        where: { id: imageId, projectId: authorized.project.id },
+      });
+      if (!image) {
+        return res.status(404).json({
+          error: 'image_not_found',
+          message: 'Image not found.',
+        });
+      }
+
+      const parsedDataUrl = deps.storage.parseDataUrl(image.url);
+      if (parsedDataUrl) {
+        const extension = IMAGE_EXTENSIONS[parsedDataUrl.mimeType] ?? '';
+        res.status(200);
+        res.setHeader('Content-Type', parsedDataUrl.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(`${image.id}${extension}`)}"`);
+        return res.send(parsedDataUrl.buffer);
+      }
+
+      const signedUrl = await deps.storage.createProjectMediaSignedUrl(image.url);
+      const upstream = await fetch(signedUrl);
+      if (!upstream.ok || !upstream.body) {
+        return res.status(500).json({
+          error: 'unexpected_failure',
+          message: 'Could not download the image.',
+        });
+      }
+
+      const extension = image.url.slice(image.url.lastIndexOf('.'));
+      res.status(200);
+      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(`${image.id}${extension.length <= 5 ? extension : ''}`)}"`);
+      return res.send(upstream.body as never);
+    } catch {
+      return res.status(500).json({
+        error: 'unexpected_failure',
+        message: 'Could not download the image.',
+      });
+    }
+  };
+}
+
 async function dependencies() {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
-  return { prisma, validateSession };
+  return { prisma, validateSession, storage };
 }
 
 export async function projectImageListHandler(req: Request, res: Response) {
@@ -329,4 +418,8 @@ export async function projectImageDeleteHandler(req: Request, res: Response) {
 
 export async function projectImageOrderHandler(req: Request, res: Response) {
   return createProjectImageOrderHandler(await dependencies())(req, res);
+}
+
+export async function projectImageDownloadHandler(req: Request, res: Response) {
+  return createProjectImageDownloadHandler(await dependencies())(req, res);
 }

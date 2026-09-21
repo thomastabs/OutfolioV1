@@ -63,12 +63,35 @@ describe('PUT /api/v1/projects/:id', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    const deps = { prisma, validateSession, ...overrides };
+    const storage = {
+      resolveMediaUrl: jest.fn(async (value: string) => (value.startsWith('projects/') ? `https://signed.example/${value}` : value)),
+    };
+    const deps = { prisma, validateSession, storage, ...overrides };
     const handler = createProjectUpdateHandler(deps);
     const res = mockResponse();
 
     return { deps, handler, res };
   }
+
+  it('does not overwrite a Storage-key coverImageUrl with its own resolved signed URL when the owner saves without changing it', async () => {
+    const storageBackedProject = { ...existingProject, coverImageUrl: 'projects/project-1/images/cover-1.png' };
+    const { deps, handler, res } = setup();
+    deps.prisma.project.findUnique.mockResolvedValue(storageBackedProject);
+    deps.prisma.project.update.mockResolvedValue(storageBackedProject);
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      params: { id: 'project-1' },
+      // The owner's form was pre-filled with the resolved signed URL and
+      // saved unchanged - this must not clobber the stored key.
+      body: { ...validBody, coverImageUrl: 'https://signed.example/projects/project-1/images/cover-1.png' },
+    } as never, res as never);
+
+    expect(deps.prisma.project.update).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+      data: expect.objectContaining({ coverImageUrl: 'projects/project-1/images/cover-1.png' }),
+    });
+  });
 
   it('updates an owned project with valid input', async () => {
     const { deps, handler, res } = setup();

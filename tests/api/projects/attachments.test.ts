@@ -59,7 +59,13 @@ describe('project .oml attachments API', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    return { deps: { prisma, validateSession, ...overrides }, prisma, validateSession };
+    const storage = {
+      uploadProjectMedia: jest.fn(async (key: string) => key),
+      createProjectMediaSignedUrl: jest.fn(async (key: string) => `https://signed.example/${key}`),
+      deleteProjectMedia: jest.fn(async () => undefined),
+      isStorageKey: (value: string) => value.startsWith('projects/'),
+    };
+    return { deps: { prisma, validateSession, storage, ...overrides }, prisma, validateSession, storage };
   }
 
   it('uploads a valid .oml attachment and stores extracted metadata', async () => {
@@ -96,6 +102,28 @@ describe('project .oml attachments API', () => {
         }),
       ],
     });
+  });
+
+  it('uploads the real attachment bytes to Supabase Storage and stores the resulting key as url', async () => {
+    const { deps, prisma, storage } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+    const file = omlFile();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [file],
+    } as never, res as never);
+
+    expect(storage.uploadProjectMedia).toHaveBeenCalledWith(
+      expect.stringMatching(/^projects\/project-1\/attachments\/.+-orders-portal\.oml$/),
+      file.buffer,
+      'application/octet-stream',
+    );
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ url: expect.stringMatching(/^projects\/project-1\/attachments\//) }),
+    }));
   });
 
   it('uploads multiple supported attachments and extracts metadata only for .oml files', async () => {
@@ -485,6 +513,44 @@ describe('project .oml attachments API', () => {
     } as never, deleteRes as never);
     expect(prisma.projectAttachment.delete).toHaveBeenCalledWith({ where: { id: 'attachment-1' } });
     expect(deleteRes.json).toHaveBeenCalledWith({ success: true });
+  });
+
+  it('deletes the Storage object when removing a Storage-backed attachment, but not for legacy self-link attachments', async () => {
+    const { deps, prisma, storage } = setup();
+    prisma.projectAttachment.findFirst.mockResolvedValue({
+      ...attachment,
+      url: 'projects/project-1/attachments/attachment-1-orders-portal.oml',
+    });
+    const deleteHandler = createProjectAttachmentDeleteHandler(deps as never);
+    await deleteHandler({ headers: {}, params: { id: 'project-1', attachmentId: 'attachment-1' } } as never, mockResponse() as never);
+    expect(storage.deleteProjectMedia).toHaveBeenCalledWith('projects/project-1/attachments/attachment-1-orders-portal.oml');
+
+    storage.deleteProjectMedia.mockClear();
+    prisma.projectAttachment.findFirst.mockResolvedValue(attachment);
+    await deleteHandler({ headers: {}, params: { id: 'project-1', attachmentId: 'attachment-1' } } as never, mockResponse() as never);
+    expect(storage.deleteProjectMedia).not.toHaveBeenCalled();
+  });
+
+  it("always returns the self-link download path as url, whether the attachment is legacy or Storage-backed", async () => {
+    const { deps, prisma } = setup();
+    prisma.projectAttachment.findMany.mockResolvedValue([
+      attachment,
+      { ...attachment, id: 'attachment-2', url: 'projects/project-1/attachments/attachment-2-diagram.pdf' },
+    ]);
+    const listHandler = createProjectAttachmentListHandler(deps as never);
+    const res = mockResponse();
+
+    await listHandler({ headers: {}, params: { id: 'project-1' } } as never, res as never);
+
+    expect(res.json).toHaveBeenCalledWith({
+      attachments: [
+        expect.objectContaining({ id: 'attachment-1', url: attachment.url }),
+        expect.objectContaining({
+          id: 'attachment-2',
+          url: '/api/v1/projects/project-1/attachments/attachment-2/download?filename=orders-portal.oml',
+        }),
+      ],
+    });
   });
 
   it('extracts .oml metadata without storing the file', async () => {

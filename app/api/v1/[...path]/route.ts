@@ -324,6 +324,12 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
         params: { id: second },
       };
     }
+    if (method === 'GET' && fourth === 'download' && fifth) {
+      return {
+        loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageDownloadHandler'),
+        params: { id: second, imageId: fifth },
+      };
+    }
     if (method === 'DELETE' && fourth) {
       return {
         loadHandler: loadHandler(() => import('@/src/api/v1/projects/images'), 'projectImageDeleteHandler'),

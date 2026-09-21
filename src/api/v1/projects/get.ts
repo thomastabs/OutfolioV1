@@ -29,13 +29,16 @@ type ProjectGetDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+  storage: {
+    resolveMediaUrl(value: string): Promise<string>;
+  };
 };
 
 function serializeVisibility(value: string) {
   return value.toLowerCase();
 }
 
-function serializeProject(project: ProjectRecord) {
+async function serializeProject(storage: ProjectGetDependencies['storage'], project: ProjectRecord) {
   return {
     id: project.id,
     title: project.title,
@@ -45,7 +48,7 @@ function serializeProject(project: ProjectRecord) {
     role: project.role,
     status: project.status,
     tags: project.tags ?? [],
-    coverImageUrl: project.coverImageUrl ?? '',
+    coverImageUrl: await storage.resolveMediaUrl(project.coverImageUrl ?? ''),
     problem: project.problem ?? '',
     features: project.features ?? '',
     technicalNotes: project.technicalNotes ?? '',
@@ -103,7 +106,7 @@ export function createProjectGetHandler(deps: ProjectGetDependencies) {
         });
       }
 
-      return res.status(200).json(serializeProject(project));
+      return res.status(200).json(await serializeProject(deps.storage, project));
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -114,10 +117,11 @@ export function createProjectGetHandler(deps: ProjectGetDependencies) {
 }
 
 export async function projectGetHandler(req: Request, res: Response) {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
 
-  return createProjectGetHandler({ prisma, validateSession })(req, res);
+  return createProjectGetHandler({ prisma, validateSession, storage })(req, res);
 }

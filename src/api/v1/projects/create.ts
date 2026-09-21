@@ -114,6 +114,10 @@ type ProjectDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+  storage: {
+    uploadProjectMedia(key: string, buffer: Buffer, contentType: string): Promise<string>;
+    resolveMediaUrl(value: string): Promise<string>;
+  };
 };
 
 type ProjectPersistence = ProjectDependencies['prisma'];
@@ -194,7 +198,27 @@ function serializeVisibility(value: string) {
   return value.toLowerCase();
 }
 
-function serializeProject(project: ProjectRecord) {
+function isLegacyAttachmentUrl(url: string) {
+  return !url || url.startsWith('/api/v1/');
+}
+
+// Story 9564046: coverImageUrl/image urls may be a Storage object key
+// (new uploads) that needs resolving to a signed URL, or a legacy
+// base64 data-URL / plain external URL that passes through unchanged
+// (storage.resolveMediaUrl handles that distinction - see src/lib/storage.ts).
+// Attachment urls are a self-link download path either way (legacy
+// self-link string as originally stored, or synthesized fresh for
+// Storage-backed rows) - see the matching logic in projects/attachments.ts.
+async function serializeProject(storage: ProjectDependencies['storage'], project: ProjectRecord) {
+  const [coverImageUrl, images] = await Promise.all([
+    storage.resolveMediaUrl(project.coverImageUrl ?? ''),
+    Promise.all((project.images ?? []).map(async (image) => ({
+      id: image.id,
+      url: await storage.resolveMediaUrl(image.url),
+      order: image.order ?? 0,
+    }))),
+  ]);
+
   return {
     id: project.id,
     title: project.title,
@@ -204,7 +228,7 @@ function serializeProject(project: ProjectRecord) {
     role: project.role,
     status: project.status,
     tags: project.tags ?? [],
-    coverImageUrl: project.coverImageUrl ?? '',
+    coverImageUrl,
     problem: project.problem ?? '',
     features: project.features ?? '',
     technicalNotes: project.technicalNotes ?? '',
@@ -214,15 +238,13 @@ function serializeProject(project: ProjectRecord) {
     publishedAt: project.publishedAt,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
-    images: (project.images ?? []).map((image) => ({
-      id: image.id,
-      url: image.url,
-      order: image.order ?? 0,
-    })),
+    images,
     attachments: (project.attachments ?? []).map((attachment) => ({
       id: attachment.id,
       filename: attachment.filename,
-      url: attachment.url,
+      url: isLegacyAttachmentUrl(attachment.url)
+        ? attachment.url
+        : storedAttachmentUrl(project.id, attachment.id, attachment.filename),
       fileType: attachment.fileType ?? '',
       fileSize: attachment.fileSize ?? 0,
       isOmlFile: Boolean(attachment.isOmlFile),
@@ -247,9 +269,17 @@ function filesByField(req: Request, names: string[]) {
   return filesFrom(req).filter((file) => fields.has(file.fieldname ?? ''));
 }
 
-function storedImageUrl(file: UploadedFile) {
-  const mimeType = file.mimetype || 'application/octet-stream';
-  return `data:${mimeType};base64,${file.buffer.toString('base64')}`;
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
+
+async function storeImageFile(storage: ProjectDependencies['storage'], projectId: string, imageId: string, file: UploadedFile) {
+  const extension = IMAGE_EXTENSIONS[file.mimetype ?? ''] ?? '';
+  const key = `projects/${projectId}/images/${imageId}${extension}`;
+  return storage.uploadProjectMedia(key, file.buffer, file.mimetype || 'application/octet-stream');
 }
 
 function baseName(filename: string) {
@@ -387,8 +417,35 @@ async function createProjectWithMedia(
     attachments: UploadedFile[];
   },
 ) {
+  // Uploads to Supabase Storage are network I/O, not database work - they
+  // run before the transaction opens, so the DB transaction itself only
+  // ever does fast, local writes. Storage keys are namespaced under a
+  // fresh id generated just for this request (uploadNamespace), not the
+  // eventual Prisma-assigned project id (which isn't known until
+  // tx.project.create runs) - the two are otherwise unrelated.
+  const uploadNamespace = crypto.randomUUID();
+  const coverImageKey = media.coverImage
+    ? await storeImageFile(deps.storage, uploadNamespace, crypto.randomUUID(), media.coverImage)
+    : null;
+  const galleryImageUploads = await Promise.all(
+    media.galleryImages.map(async (file) => {
+      const id = crypto.randomUUID();
+      const url = await storeImageFile(deps.storage, uploadNamespace, id, file);
+      return { id, url };
+    }),
+  );
+  const attachmentUploads = await Promise.all(
+    media.attachments.map(async (file) => {
+      const id = crypto.randomUUID();
+      const filename = baseName(file.originalname);
+      const key = `projects/${uploadNamespace}/attachments/${id}-${filename}`;
+      const url = await deps.storage.uploadProjectMedia(key, file.buffer, file.mimetype || 'application/octet-stream');
+      return { id, filename, url, file };
+    }),
+  );
+
   const create = async (tx: ProjectPersistence) => {
-    const coverImageUrl = media.coverImage ? storedImageUrl(media.coverImage) : data.coverImageUrl;
+    const coverImageUrl = coverImageKey ?? data.coverImageUrl;
     const project = await tx.project.create?.({
       data: {
         ownerId: session.userId,
@@ -402,12 +459,12 @@ async function createProjectWithMedia(
 
     const projectId = (project as ProjectRecord).id;
     const images: ProjectImageRecord[] = [];
-    for (const [order, file] of media.galleryImages.entries()) {
+    for (const [order, { id, url }] of galleryImageUploads.entries()) {
       const image = await tx.projectImage?.create({
         data: {
-          id: crypto.randomUUID(),
+          id,
           projectId,
-          url: storedImageUrl(file),
+          url,
           order,
         },
       });
@@ -415,18 +472,16 @@ async function createProjectWithMedia(
     }
 
     const attachments: AttachmentRecord[] = [];
-    for (const [order, file] of media.attachments.entries()) {
-      const filename = baseName(file.originalname);
+    for (const [order, { id, filename, url, file }] of attachmentUploads.entries()) {
       const extension = attachmentExtension(filename);
       const isOmlFile = extension === '.oml';
       const metadata = validateAttachmentFile(file).body as OmlMetadataRecord | null;
-      const id = crypto.randomUUID();
       const attachment = await tx.projectAttachment?.create({
         data: {
           id,
           projectId,
           filename,
-          url: storedAttachmentUrl(projectId, id, filename),
+          url,
           fileType: file.mimetype ?? 'application/octet-stream',
           fileSize: file.size,
           isOmlFile,
@@ -544,7 +599,7 @@ export function createProjectHandler(deps: ProjectDependencies) {
         },
       );
 
-      return res.status(200).json(serializeProject(project as ProjectRecord));
+      return res.status(200).json(await serializeProject(deps.storage, project as ProjectRecord));
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -568,7 +623,7 @@ export function createProjectListHandler(deps: ProjectDependencies) {
       });
 
       return res.status(200).json({
-        projects: (projects ?? []).map(serializeProject),
+        projects: await Promise.all((projects ?? []).map((project) => serializeProject(deps.storage, project))),
       });
     } catch {
       return res.status(500).json({
@@ -579,20 +634,19 @@ export function createProjectListHandler(deps: ProjectDependencies) {
   };
 }
 
-export async function projectCreateHandler(req: Request, res: Response) {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+async function dependencies() {
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
+  return { prisma: prisma as unknown as ProjectDependencies['prisma'], validateSession, storage };
+}
 
-  return createProjectHandler({ prisma: prisma as unknown as ProjectDependencies['prisma'], validateSession })(req, res);
+export async function projectCreateHandler(req: Request, res: Response) {
+  return createProjectHandler(await dependencies())(req, res);
 }
 
 export async function projectListHandler(req: Request, res: Response) {
-  const [{ prisma }, { validateSession }] = await Promise.all([
-    import('@/src/lib/prisma'),
-    import('@/src/lib/session'),
-  ]);
-
-  return createProjectListHandler({ prisma: prisma as unknown as ProjectDependencies['prisma'], validateSession })(req, res);
+  return createProjectListHandler(await dependencies())(req, res);
 }

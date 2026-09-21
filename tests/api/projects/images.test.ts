@@ -1,5 +1,33 @@
+const uploadProjectMedia = jest.fn(async (key: string) => key);
+const deleteProjectMedia = jest.fn(async () => undefined);
+const createProjectMediaSignedUrl = jest.fn(async (key: string) => `https://signed.example/${key}`);
+
+function fakeResolveMediaUrl(value: string) {
+  return value.startsWith('projects/') ? `https://signed.example/${value}` : value;
+}
+
+function fakeParseDataUrl(value: string) {
+  const match = value.match(/^data:([^;,]*)?(;base64)?,(.*)$/s);
+  if (!match) return null;
+  const mimeType = match[1] || 'application/octet-stream';
+  const buffer = match[2] ? Buffer.from(match[3], 'base64') : Buffer.from(decodeURIComponent(match[3]), 'utf8');
+  return { mimeType, buffer };
+}
+
+function fakeStorage() {
+  return {
+    uploadProjectMedia: (...args: [string, Buffer, string]) => uploadProjectMedia(...args),
+    deleteProjectMedia: (...args: [string]) => deleteProjectMedia(...args),
+    createProjectMediaSignedUrl: (...args: [string]) => createProjectMediaSignedUrl(...args),
+    resolveMediaUrl: async (value: string) => fakeResolveMediaUrl(value),
+    isStorageKey: (value: string) => value.startsWith('projects/'),
+    parseDataUrl: (value: string) => fakeParseDataUrl(value),
+  };
+}
+
 import {
   createProjectImageDeleteHandler,
+  createProjectImageDownloadHandler,
   createProjectImageListHandler,
   createProjectImageOrderHandler,
   createProjectImageUploadHandler,
@@ -9,6 +37,8 @@ function mockResponse() {
   return {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
+    setHeader: jest.fn().mockReturnThis(),
+    send: jest.fn().mockReturnThis(),
   };
 }
 
@@ -24,6 +54,9 @@ function imageFile(overrides: Partial<{ originalname: string; mimetype: string; 
 
 describe('project image gallery API', () => {
   const project = { id: 'project-1', ownerId: 'user-1' };
+  // Legacy fixtures: rows written before Story 9564046 keep their base64
+  // data-URL in `url` unmigrated (SC-3) - resolveMediaUrl passes these
+  // through unchanged, which the mock above replicates.
   const firstImage = {
     id: 'image-1',
     projectId: 'project-1',
@@ -36,6 +69,12 @@ describe('project image gallery API', () => {
     url: 'data:image/jpeg;base64,ZmFrZQ==',
     order: 1,
   };
+
+  beforeEach(() => {
+    uploadProjectMedia.mockClear();
+    deleteProjectMedia.mockClear();
+    createProjectMediaSignedUrl.mockClear();
+  });
 
   function setup(overrides: Record<string, unknown> = {}) {
     const prisma = {
@@ -51,14 +90,17 @@ describe('project image gallery API', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue({ valid: true, userId: 'user-1' });
-    return { deps: { prisma, validateSession, ...overrides }, prisma, validateSession };
+    return { deps: { prisma, validateSession, storage: fakeStorage(), ...overrides }, prisma, validateSession };
   }
 
-  it('uploads multiple valid images and returns the updated image list', async () => {
+  it('uploads multiple valid images to Supabase Storage and returns the updated image list with signed URLs', async () => {
     const { deps, prisma } = setup();
     prisma.projectImage.findMany
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([firstImage, secondImage]);
+      .mockResolvedValueOnce([
+        { id: 'image-1', projectId: 'project-1', url: 'projects/project-1/images/image-1.png', order: 0 },
+        { id: 'image-2', projectId: 'project-1', url: 'projects/project-1/images/image-2.jpg', order: 1 },
+      ]);
     const handler = createProjectImageUploadHandler(deps as never);
     const res = mockResponse();
 
@@ -71,26 +113,22 @@ describe('project image gallery API', () => {
       ],
     } as never, res as never);
 
+    expect(uploadProjectMedia).toHaveBeenCalledTimes(2);
+    expect(uploadProjectMedia).toHaveBeenNthCalledWith(1, expect.stringMatching(/^projects\/project-1\/images\/.+\.png$/), expect.any(Buffer), 'image/png');
+    expect(uploadProjectMedia).toHaveBeenNthCalledWith(2, expect.stringMatching(/^projects\/project-1\/images\/.+\.jpg$/), expect.any(Buffer), 'image/jpeg');
     expect(prisma.projectImage.create).toHaveBeenCalledTimes(2);
     expect(prisma.projectImage.create).toHaveBeenNthCalledWith(1, {
       data: expect.objectContaining({
         projectId: 'project-1',
-        url: expect.stringMatching(/^data:image\/png;base64,/),
+        url: expect.stringMatching(/^projects\/project-1\/images\/.+\.png$/),
         order: 0,
-      }),
-    });
-    expect(prisma.projectImage.create).toHaveBeenNthCalledWith(2, {
-      data: expect.objectContaining({
-        projectId: 'project-1',
-        url: expect.stringMatching(/^data:image\/jpeg;base64,/),
-        order: 1,
       }),
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       images: [
-        { id: 'image-1', url: firstImage.url, order: 0 },
-        { id: 'image-2', url: secondImage.url, order: 1 },
+        { id: 'image-1', url: 'https://signed.example/projects/project-1/images/image-1.png', order: 0 },
+        { id: 'image-2', url: 'https://signed.example/projects/project-1/images/image-2.jpg', order: 1 },
       ],
     });
   });
@@ -107,6 +145,7 @@ describe('project image gallery API', () => {
     } as never, res as never);
 
     expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(uploadProjectMedia).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(415);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
   });
@@ -290,6 +329,24 @@ describe('project image gallery API', () => {
     expect(deleteRes.json).toHaveBeenCalledWith({ success: true });
   });
 
+  it('deletes the Storage object when removing a Storage-backed image, but not for legacy data-URL images', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findFirst.mockResolvedValue({
+      id: 'image-1',
+      projectId: 'project-1',
+      url: 'projects/project-1/images/image-1.png',
+      order: 0,
+    });
+    const deleteHandler = createProjectImageDeleteHandler(deps as never);
+    await deleteHandler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, mockResponse() as never);
+    expect(deleteProjectMedia).toHaveBeenCalledWith('projects/project-1/images/image-1.png');
+
+    deleteProjectMedia.mockClear();
+    prisma.projectImage.findFirst.mockResolvedValue(firstImage);
+    await deleteHandler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, mockResponse() as never);
+    expect(deleteProjectMedia).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed image order input', async () => {
     const { deps } = setup();
     const handler = createProjectImageOrderHandler(deps as never);
@@ -384,5 +441,83 @@ describe('project image gallery API', () => {
 
     expect(prisma.projectImage.update).toHaveBeenCalledTimes(2);
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  describe('createProjectImageDownloadHandler', () => {
+    it('streams a legacy data-URL image as a decoded buffer', async () => {
+      const { deps, prisma } = setup();
+      prisma.projectImage.findFirst.mockResolvedValue(firstImage);
+      const handler = createProjectImageDownloadHandler(deps as never);
+      const res = mockResponse();
+
+      await handler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, res as never);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', expect.stringContaining('attachment'));
+      expect(res.send).toHaveBeenCalledWith(Buffer.from('fake', 'utf8'));
+      expect(createProjectMediaSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('streams a Storage-backed image from a signed URL without buffering it as a data-URL', async () => {
+      const { deps, prisma } = setup();
+      prisma.projectImage.findFirst.mockResolvedValue({
+        id: 'image-1',
+        projectId: 'project-1',
+        url: 'projects/project-1/images/image-1.png',
+        order: 0,
+      });
+      const upstreamBody = {};
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        body: upstreamBody,
+        headers: { get: (name: string) => (name === 'content-type' ? 'image/png' : null) },
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const handler = createProjectImageDownloadHandler(deps as never);
+      const res = mockResponse();
+
+      await handler({ headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never, res as never);
+
+      expect(createProjectMediaSignedUrl).toHaveBeenCalledWith('projects/project-1/images/image-1.png');
+      expect(fetchMock).toHaveBeenCalledWith('https://signed.example/projects/project-1/images/image-1.png');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+      expect(res.send).toHaveBeenCalledWith(upstreamBody);
+    });
+
+    it('returns 404 for a missing image', async () => {
+      const { deps, prisma } = setup();
+      prisma.projectImage.findFirst.mockResolvedValue(null);
+      const handler = createProjectImageDownloadHandler(deps as never);
+      const res = mockResponse();
+
+      await handler({ headers: {}, params: { id: 'project-1', imageId: 'missing' } } as never, res as never);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it('requires authentication and ownership', async () => {
+      const { deps: unauthedDeps } = setup({
+        validateSession: jest.fn().mockReturnValue({ valid: false, reason: 'missing_session' }),
+      });
+      const unauthedRes = mockResponse();
+      await createProjectImageDownloadHandler(unauthedDeps as never)(
+        { headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never,
+        unauthedRes as never,
+      );
+      expect(unauthedRes.status).toHaveBeenCalledWith(401);
+
+      const { deps: nonOwnerDeps } = setup({
+        prisma: { project: { findUnique: jest.fn().mockResolvedValue({ id: 'project-1', ownerId: 'another-user' }) } },
+      });
+      const nonOwnerRes = mockResponse();
+      await createProjectImageDownloadHandler(nonOwnerDeps as never)(
+        { headers: {}, params: { id: 'project-1', imageId: 'image-1' } } as never,
+        nonOwnerRes as never,
+      );
+      expect(nonOwnerRes.status).toHaveBeenCalledWith(403);
+    });
   });
 });

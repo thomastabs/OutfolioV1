@@ -43,7 +43,7 @@ describe('GET /api/v1/public/project/:slug', () => {
         findFirst: jest.fn().mockResolvedValue(projectResult),
       },
     };
-    const handler = createPublicProjectHandler({ prisma });
+    const handler = createPublicProjectHandler({ prisma, storage: { resolveMediaUrl: jest.fn(async (v: string) => v) } });
     const res = mockResponse();
 
     return { prisma, handler, res };
@@ -181,7 +181,7 @@ describe('GET /api/v1/public/project/:slug/images', () => {
         findMany: jest.fn().mockResolvedValue(images),
       },
     };
-    const handler = createPublicProjectImagesHandler({ prisma });
+    const handler = createPublicProjectImagesHandler({ prisma, storage: { resolveMediaUrl: jest.fn(async (v: string) => v) } });
     const res = mockResponse();
 
     return { prisma, handler, res };

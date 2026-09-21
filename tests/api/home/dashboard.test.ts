@@ -50,7 +50,8 @@ describe('GET /api/v1/home/dashboard', () => {
       },
     };
     const validateSession = jest.fn().mockReturnValue(options.session ?? { valid: false, reason: 'missing' });
-    const handler = createHomeDashboardHandler({ prisma, validateSession });
+    const storage = { resolveMediaUrl: jest.fn(async (value: string) => value) };
+    const handler = createHomeDashboardHandler({ prisma, validateSession, storage });
     const res = mockResponse();
 
     return { prisma, validateSession, handler, res };

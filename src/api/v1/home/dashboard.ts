@@ -44,6 +44,9 @@ type HomeDashboardDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): HomeDashboardSession;
+  storage: {
+    resolveMediaUrl(value: string): Promise<string>;
+  };
 };
 
 export const HOME_DASHBOARD_PRODUCT_NAME = 'Outfolio';
@@ -84,10 +87,15 @@ export function createHomeDashboardHandler(dependencies: HomeDashboardDependenci
         Promise.resolve(dependencies.validateSession(req)),
       ]);
 
+      const resolvedHighlights = await Promise.all(publishedProjects.map(async (project) => ({
+        ...project,
+        coverImageUrl: await dependencies.storage.resolveMediaUrl(project.coverImageUrl ?? ''),
+      })));
+
       return res.status(200).json({
         productName: HOME_DASHBOARD_PRODUCT_NAME,
         valueProposition: HOME_DASHBOARD_VALUE_PROPOSITION,
-        publishedProjects,
+        publishedProjects: resolvedHighlights,
         session: dashboardSessionState(session),
       });
     } catch {
@@ -100,10 +108,11 @@ export function createHomeDashboardHandler(dependencies: HomeDashboardDependenci
 }
 
 export async function homeDashboardHandler(req: Request, res: Response) {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
 
-  return createHomeDashboardHandler({ prisma, validateSession })(req, res);
+  return createHomeDashboardHandler({ prisma, validateSession, storage })(req, res);
 }

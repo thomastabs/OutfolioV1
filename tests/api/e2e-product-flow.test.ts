@@ -190,6 +190,10 @@ function createFlowHarness() {
     validateSession: jest.fn(() => ({ valid: true as const, userId: 'user-1' })),
     establishSession: jest.fn(async () => ({ expiresAt: '2026-10-18T10:00:00.000Z' })),
     now: jest.fn(() => new Date('2026-09-18T12:00:00.000Z')),
+    storage: {
+      uploadProjectMedia: jest.fn(async (key: string) => key),
+      resolveMediaUrl: jest.fn(async (value: string) => value),
+    },
     profiles,
     projects,
   };

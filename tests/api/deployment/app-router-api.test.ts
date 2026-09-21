@@ -47,4 +47,11 @@ describe('App Router API deployment bridge', () => {
     expect(source).toContain("fourth === 'attachments'");
     expect(source).toContain('publicProjectAttachmentDownloadHandler');
   });
+
+  it('routes owner-authenticated project image downloads through the deployed API bridge (Story 9564046)', () => {
+    const source = fs.readFileSync(routePath, 'utf8');
+
+    expect(source).toContain("fourth === 'download' && fifth");
+    expect(source).toContain('projectImageDownloadHandler');
+  });
 });

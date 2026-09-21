@@ -238,6 +238,32 @@ describe('GET /api/v1/public/projects/:id/attachments/:attachmentId', () => {
       message: 'Could not download the attachment.',
     });
   });
+
+  it('redirects to a freshly signed Storage URL for a Storage-backed attachment, instead of proxying bytes', async () => {
+    const createProjectMediaSignedUrl = jest.fn(async (key: string) => `https://signed.example/${key}`);
+    const prisma = {
+      project: { findUnique: jest.fn().mockResolvedValue(project) },
+      projectAttachment: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...attachment,
+          url: 'projects/project-1/attachments/attachment-1-architecture.pdf',
+        }),
+      },
+    };
+    const handler = createPublicProjectAttachmentDownloadHandler({
+      prisma,
+      storage: { createProjectMediaSignedUrl },
+    } as never);
+    const res = mockResponse();
+
+    await handler({
+      params: { id: 'project-1', attachmentId: 'attachment-1' },
+    } as never, res as never);
+
+    expect(createProjectMediaSignedUrl).toHaveBeenCalledWith('projects/project-1/attachments/attachment-1-architecture.pdf');
+    expect(res.status).toHaveBeenCalledWith(302);
+    expect(res.setHeader).toHaveBeenCalledWith('Location', 'https://signed.example/projects/project-1/attachments/attachment-1-architecture.pdf');
+  });
 });
 
 describe('GET /api/v1/projects/:id/attachments/:attachmentId/download', () => {
@@ -331,5 +357,38 @@ describe('GET /api/v1/projects/:id/attachments/:attachmentId/download', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'attachment_not_found' }));
+  });
+
+  it('streams a Storage-backed attachment from a signed URL rather than the legacy placeholder body', async () => {
+    const createProjectMediaSignedUrl = jest.fn(async (key: string) => `https://signed.example/${key}`);
+    const upstreamBody = {};
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: upstreamBody,
+      headers: { get: () => 'application/pdf' },
+    }) as unknown as typeof fetch;
+
+    const { handler, res } = setup({
+      storage: { createProjectMediaSignedUrl },
+      prisma: {
+        project: { findUnique: jest.fn().mockResolvedValue(project) },
+        projectAttachment: {
+          findFirst: jest.fn().mockResolvedValue({
+            ...attachment,
+            url: 'projects/project-1/attachments/attachment-1-architecture.pdf',
+          }),
+        },
+      },
+    });
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1', attachmentId: 'attachment-1' },
+    } as never, res as never);
+
+    expect(createProjectMediaSignedUrl).toHaveBeenCalledWith('projects/project-1/attachments/attachment-1-architecture.pdf');
+    expect(global.fetch).toHaveBeenCalledWith('https://signed.example/projects/project-1/attachments/attachment-1-architecture.pdf');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.send).toHaveBeenCalledWith(upstreamBody);
   });
 });

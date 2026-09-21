@@ -85,6 +85,12 @@ type AttachmentsDependencies = {
     };
   };
   validateSession(req: Pick<Request, 'headers'>): { valid: true; userId: string } | { valid: false; reason: string };
+  storage: {
+    uploadProjectMedia(key: string, buffer: Buffer, contentType: string): Promise<string>;
+    createProjectMediaSignedUrl(key: string): Promise<string>;
+    deleteProjectMedia(key: string): Promise<void>;
+    isStorageKey(value: string): boolean;
+  };
 };
 
 type AuthorizedProjectResult =
@@ -170,11 +176,22 @@ async function authorizeProject(
   return { ok: true, project };
 }
 
+// Story 9564046: `url` is now an internal locator, not a client-facing
+// value - a legacy self-link string (isLegacyAttachmentUrl) for rows
+// written before this story (SC-3, never migrated), or a Supabase
+// Storage object key for new uploads. Either way the client always gets
+// back the same self-link download path it always has, so no frontend
+// change is needed; the download handler is what branches on the real
+// backing store.
 function attachmentResponse(attachment: AttachmentRecord) {
+  const url = isLegacyAttachmentUrl(attachment.url)
+    ? attachment.url
+    : storedAttachmentUrl(attachment.projectId, attachment.id, attachment.filename);
+
   return {
     id: attachment.id,
     filename: attachment.filename,
-    url: attachment.url,
+    url,
     fileType: attachment.fileType ?? '',
     fileSize: attachment.fileSize ?? 0,
     isOmlFile: Boolean(attachment.isOmlFile),
@@ -274,6 +291,25 @@ function storedAttachmentUrl(projectId: string, attachmentId: string, filename: 
   return `/api/v1/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(attachmentId)}/download?filename=${encodeURIComponent(filename)}`;
 }
 
+function isLegacyAttachmentUrl(url: string) {
+  return !url || url.startsWith('/api/v1/');
+}
+
+function storageKeyForAttachment(projectId: string, attachmentId: string, filename: string) {
+  return `projects/${projectId}/attachments/${attachmentId}-${filename}`;
+}
+
+async function storeAttachmentFile(
+  storage: AttachmentsDependencies['storage'],
+  projectId: string,
+  attachmentId: string,
+  filename: string,
+  file: UploadedFile,
+) {
+  const key = storageKeyForAttachment(projectId, attachmentId, filename);
+  return storage.uploadProjectMedia(key, file.buffer, file.mimetype || 'application/octet-stream');
+}
+
 async function nextOrder(deps: AttachmentsDependencies, projectId: string) {
   const existing = await deps.prisma.projectAttachment.findMany({
     where: { projectId },
@@ -311,12 +347,13 @@ export function createProjectAttachmentUploadHandler(deps: AttachmentsDependenci
         const id = crypto.randomUUID();
         const filename = baseName(file.originalname);
         const isOmlFile = attachmentExtension(filename) === '.oml';
+        const storageKey = await storeAttachmentFile(deps.storage, authorized.project.id, id, filename, file);
         const attachment = await deps.prisma.projectAttachment.create({
           data: {
             id,
             projectId: authorized.project.id,
             filename,
-            url: storedAttachmentUrl(authorized.project.id, id, filename),
+            url: storageKey,
             fileType: file.mimetype ?? 'application/octet-stream',
             fileSize: file.size,
             isOmlFile,
@@ -391,6 +428,9 @@ export function createProjectAttachmentDeleteHandler(deps: AttachmentsDependenci
       }
 
       await deps.prisma.projectAttachment.delete({ where: { id: attachment.id } });
+      if (deps.storage.isStorageKey(attachment.url)) {
+        await deps.storage.deleteProjectMedia(attachment.url);
+      }
       return res.status(200).json({ success: true });
     } catch {
       return res.status(500).json({
@@ -401,6 +441,11 @@ export function createProjectAttachmentDeleteHandler(deps: AttachmentsDependenci
   };
 }
 
+// Story 9564046: streams the file for the owner rather than returning a
+// URL, so a signed Storage URL is never handed to the client directly
+// for this authenticated path. Legacy attachments (SC-3, `url` is the
+// pre-existing self-link string) keep their exact original behavior -
+// there is no real file to stream for those.
 export function createProjectAttachmentDownloadHandler(deps: AttachmentsDependencies) {
   return async function projectAttachmentDownloadHandler(req: Request, res: Response) {
     try {
@@ -418,10 +463,26 @@ export function createProjectAttachmentDownloadHandler(deps: AttachmentsDependen
         });
       }
 
+      if (isLegacyAttachmentUrl(attachment.url)) {
+        res.status(200);
+        res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
+        return res.send(publicDownloadBody(attachment));
+      }
+
+      const signedUrl = await deps.storage.createProjectMediaSignedUrl(attachment.url);
+      const upstream = await fetch(signedUrl);
+      if (!upstream.ok || !upstream.body) {
+        return res.status(500).json({
+          error: 'unexpected_failure',
+          message: 'Could not download the attachment.',
+        });
+      }
+
       res.status(200);
-      res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+      res.setHeader('Content-Type', attachment.fileType || upstream.headers.get('content-type') || 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
-      return res.send(publicDownloadBody(attachment));
+      return res.send(upstream.body as never);
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -506,7 +567,7 @@ export function createProjectOmlMetadataHandler(deps: AttachmentsDependencies) {
   };
 }
 
-export function createPublicProjectAttachmentDownloadHandler(deps: Pick<AttachmentsDependencies, 'prisma'>) {
+export function createPublicProjectAttachmentDownloadHandler(deps: Pick<AttachmentsDependencies, 'prisma' | 'storage'>) {
   return async function publicProjectAttachmentDownloadHandler(req: Request, res: Response) {
     try {
       const projectId = projectIdFrom(req);
@@ -544,10 +605,22 @@ export function createPublicProjectAttachmentDownloadHandler(deps: Pick<Attachme
         });
       }
 
-      res.status(200);
-      res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
-      return res.send(publicDownloadBody(attachment));
+      if (isLegacyAttachmentUrl(attachment.url)) {
+        res.status(200);
+        res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${contentDispositionFilename(attachment.filename)}"`);
+        return res.send(publicDownloadBody(attachment));
+      }
+
+      // Story 9564046 (EP-33, Phase 2 design review): published media is
+      // served by redirecting straight to a signed Storage/CDN URL
+      // instead of proxying bytes through this app - a plain <a href>
+      // download link keeps working unchanged, and the browser fetches
+      // directly from Storage.
+      const signedUrl = await deps.storage.createProjectMediaSignedUrl(attachment.url);
+      res.status(302);
+      res.setHeader('Location', signedUrl);
+      return res.send('');
     } catch {
       return res.status(500).json({
         error: 'unexpected_failure',
@@ -558,11 +631,12 @@ export function createPublicProjectAttachmentDownloadHandler(deps: Pick<Attachme
 }
 
 async function dependencies() {
-  const [{ prisma }, { validateSession }] = await Promise.all([
+  const [{ prisma }, { validateSession }, storage] = await Promise.all([
     import('@/src/lib/prisma'),
     import('@/src/lib/session'),
+    import('@/src/lib/storage'),
   ]);
-  return { prisma, validateSession };
+  return { prisma, validateSession, storage };
 }
 
 export async function projectAttachmentUploadHandler(req: Request, res: Response) {
