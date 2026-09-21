@@ -39,6 +39,14 @@ test('registers, logs in, creates and publishes a project, then views it publicl
       page.getByRole('button', { name: 'Create account' }).click(),
     ]);
     expect(registerResponse.ok(), `register API response: ${await registerResponse.text()}`).toBeTruthy();
+    const registerBody = await registerResponse.json() as {
+      userId: string; username: string; email: string; createdAt: string; session: { expiresAt: string };
+    };
+    expect(registerBody.userId).toBeTruthy();
+    expect(registerBody.username).toBe(testUser.username);
+    expect(registerBody.email).toBe(testUser.email);
+    expect(registerBody.createdAt).toBeTruthy();
+    expect(registerBody.session?.expiresAt).toBeTruthy();
 
     await expect(page).toHaveURL('/profile');
     await expect(page.getByRole('heading', { name: 'Profile workspace' })).toBeVisible();
@@ -55,7 +63,19 @@ test('registers, logs in, creates and publishes a project, then views it publicl
 
     await page.getByLabel('Username', { exact: true }).fill(testUser.username);
     await page.getByLabel('Password', { exact: true }).fill(testUser.password);
-    await page.getByRole('button', { name: 'Log in' }).click();
+
+    const [loginResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/v1/auth/login') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Log in' }).click(),
+    ]);
+    expect(loginResponse.ok(), `login API response: ${await loginResponse.text()}`).toBeTruthy();
+    const loginBody = await loginResponse.json() as {
+      userId: string; username: string; email: string; session: { expiresAt: string };
+    };
+    expect(loginBody.userId).toBeTruthy();
+    expect(loginBody.username).toBe(testUser.username);
+    expect(loginBody.email).toBe(testUser.email);
+    expect(loginBody.session?.expiresAt).toBeTruthy();
 
     await expect(page).toHaveURL('/profile');
     await expect(page.getByRole('heading', { name: 'Profile workspace' })).toBeVisible();
@@ -72,8 +92,16 @@ test('registers, logs in, creates and publishes a project, then views it publicl
       page.waitForResponse((response) => response.url().includes('/api/v1/projects') && response.request().method() === 'POST'),
       page.getByRole('button', { name: 'Create project' }).click(),
     ]);
-    const created = await createResponse.json() as { slug: string };
+    expect(createResponse.ok(), `create project API response: ${await createResponse.text()}`).toBeTruthy();
+    const created = await createResponse.json() as {
+      id: string; title: string; slug: string; summary: string; visibility: string; publishedAt: string | null;
+    };
     projectSlug = created.slug;
+    expect(created.id).toBeTruthy();
+    expect(created.title).toBe(testProject.title);
+    expect(created.summary).toBe(testProject.summary);
+    expect(created.visibility).toBe('draft');
+    expect(created.publishedAt).toBeNull();
 
     const projectList = page.getByRole('region', { name: 'Project list' });
     await expect(projectList.getByRole('heading', { name: testProject.title })).toBeVisible();
@@ -82,7 +110,21 @@ test('registers, logs in, creates and publishes a project, then views it publicl
 
   await test.step('Publish the project case study', async () => {
     const projectList = page.getByRole('region', { name: 'Project list' });
-    await page.getByRole('button', { name: `Publish ${testProject.title}` }).click();
+
+    const [publishResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/publish') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: `Publish ${testProject.title}` }).click(),
+    ]);
+    expect(publishResponse.ok(), `publish API response: ${await publishResponse.text()}`).toBeTruthy();
+    const published = await publishResponse.json() as {
+      id: string; title: string; slug: string; status: string; visibility: string; publishedAt: string;
+    };
+    expect(published.id).toBeTruthy();
+    expect(published.title).toBe(testProject.title);
+    expect(published.slug).toBe(projectSlug);
+    expect(published.status).toBeTruthy();
+    expect(published.visibility).toBe('published');
+    expect(published.publishedAt).toBeTruthy();
 
     await expect(projectList.getByText('Published', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: `Unpublish ${testProject.title}` })).toBeVisible();
@@ -94,7 +136,15 @@ test('registers, logs in, creates and publishes a project, then views it publicl
     const visitorContext = await browser.newContext();
     const visitorPage = await visitorContext.newPage();
 
-    await visitorPage.goto(`/project/${projectSlug}`);
+    const [publicResponse] = await Promise.all([
+      visitorPage.waitForResponse((response) => response.url().includes(`/api/v1/public/project/${projectSlug}`) && !response.url().includes('/images')),
+      visitorPage.goto(`/project/${projectSlug}`),
+    ]);
+    expect(publicResponse.ok(), `public project API response: ${await publicResponse.text()}`).toBeTruthy();
+    const publicProject = await publicResponse.json() as { title: string; visibility: string; error?: string };
+    expect(publicProject.title).toBe(testProject.title);
+    expect(publicProject.visibility).toBe('published');
+    expect(publicProject.error).toBeUndefined();
 
     await expect(visitorPage.getByRole('heading', { name: testProject.title })).toBeVisible();
     await expect(visitorPage.getByText(testProject.summary)).toBeVisible();
