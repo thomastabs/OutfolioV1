@@ -77,14 +77,14 @@ test('registers, logs in, creates and publishes a project, then views it publicl
 
     const projectList = page.getByRole('region', { name: 'Project list' });
     await expect(projectList.getByRole('heading', { name: testProject.title })).toBeVisible();
-    await expect(projectList.getByText('Draft')).toBeVisible();
+    await expect(projectList.getByText('Draft', { exact: true })).toBeVisible();
   });
 
   await test.step('Publish the project case study', async () => {
     const projectList = page.getByRole('region', { name: 'Project list' });
     await page.getByRole('button', { name: `Publish ${testProject.title}` }).click();
 
-    await expect(projectList.getByText('Published')).toBeVisible();
+    await expect(projectList.getByText('Published', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: `Unpublish ${testProject.title}` })).toBeVisible();
   });
 
