@@ -191,6 +191,26 @@ describe('project .oml attachments API', () => {
     }));
   });
 
+  it('rejects the entire batch atomically when one file in a mixed selection is unsupported, persisting nothing', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [
+        { originalname: 'architecture.pdf', mimetype: 'application/pdf', size: 42, buffer: Buffer.from('%PDF-1.4') },
+        omlFile({ originalname: 'malware.exe', mimetype: 'application/x-msdownload' }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(prisma.omlMetadata.upsert).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unsupported_media_type' }));
+  });
+
   it('rejects supported attachment extensions with unsupported MIME types', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);

@@ -296,13 +296,17 @@ export function createProjectAttachmentUploadHandler(deps: AttachmentsDependenci
         });
       }
 
-      let order = await nextOrder(deps, authorized.project.id);
-      const attachments: AttachmentRecord[] = [];
       for (const file of files) {
         const validation = validateAttachmentFile(file);
         if (validation.status !== 200) {
           return res.status(validation.status).json(validation.body);
         }
+      }
+
+      let order = await nextOrder(deps, authorized.project.id);
+      const attachments: AttachmentRecord[] = [];
+      for (const file of files) {
+        const validation = validateAttachmentFile(file);
 
         const id = crypto.randomUUID();
         const filename = baseName(file.originalname);
