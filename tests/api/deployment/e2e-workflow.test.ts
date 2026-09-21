@@ -23,9 +23,36 @@ describe('E2E test workflow', () => {
 
     expect(source).toContain('DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}');
     expect(source).toContain('SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}');
+    expect(source).toContain('SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}');
     expect(source).toContain('SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}');
     expect(source).toContain('NEXTAUTH_SECRET: ${{ secrets.TEST_NEXTAUTH_SECRET }}');
     expect(source).not.toMatch(/DATABASE_URL:\s*\$\{\{\s*secrets\.DATABASE_URL\s*\}\}/);
+  });
+
+  it('sets every env var the app requires at runtime, not just some of them', () => {
+    const routeSource = fs.readFileSync(
+      path.join(process.cwd(), 'app/api/v1/[...path]/route.ts'),
+      'utf8',
+    );
+    const workflowSource = fs.readFileSync(workflowPath, 'utf8');
+
+    const requiredEnvMatch = routeSource.match(/const requiredDeploymentEnv = \[([\s\S]*?)\] as const/);
+    expect(requiredEnvMatch).not.toBeNull();
+
+    const requiredEnvVars = Array.from(
+      requiredEnvMatch![1].matchAll(/'([A-Z_]+)'/g),
+      (match) => match[1],
+    );
+    expect(requiredEnvVars.length).toBeGreaterThan(0);
+
+    for (const name of requiredEnvVars) {
+      if (name === 'NEXTAUTH_URL') {
+        // Not a secret - a plain, non-sensitive localhost URL for the E2E run.
+        expect(workflowSource).toContain(`${name}: http://localhost:3000`);
+        continue;
+      }
+      expect(workflowSource).toContain(`${name}: \${{ secrets.TEST_${name} }}`);
+    }
   });
 
   it('runs the harness steps in the correct order: migrate, seed, build, start, then test', () => {
