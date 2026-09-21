@@ -766,6 +766,50 @@ describe('ProjectEditor', () => {
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
   });
 
+  it('blocks the entire attachment selection when mixing a supported file with an unsupported one', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return { ok: true, status: 200, json: async () => ({ attachments: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), [
+      new File(['%PDF-1.4'], 'architecture.pdf', { type: 'application/pdf' }),
+      new File(['binary'], 'malware.exe', { type: 'application/x-msdownload' }),
+    ]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only .oml, PDF, text, Markdown, or ZIP attachments can be uploaded.');
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/attachments', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('disables the upload attachments button when no files are selected', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return { ok: true, status: 200, json: async () => ({ attachments: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    expect(await screen.findByRole('button', { name: /upload attachments/i })).toBeDisabled();
+  });
+
   it('prevents supported attachment extensions with unsupported MIME types before upload', async () => {
     const user = userEvent.setup({ applyAccept: false });
     jest.spyOn(global, 'fetch').mockImplementation(async (url) => {

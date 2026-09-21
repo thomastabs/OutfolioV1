@@ -339,4 +339,103 @@ describe('project .oml attachments API', () => {
       message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
     });
   });
+
+  it('extracts fallback metadata from an .oml file with no explicit moduleName or version tags', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'checkout-flow.oml', buffer: Buffer.from('plain export content') })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename: 'checkout-flow.oml', isOmlFile: true }),
+    }));
+    expect(prisma.omlMetadata.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { moduleName: 'checkout-flow', version: 'unknown' },
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('accepts an attachment exactly at the 50 MiB size limit', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'architecture.pdf', mimetype: 'application/pdf', size: 50 * 1024 * 1024 })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('accepts filenames with spaces and sanitizes unsafe special characters rather than rejecting the upload', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({
+        originalname: 'Design Notes (v2) — 100% draft.txt',
+        mimetype: 'text/plain',
+      })],
+    } as never, res as never);
+
+    // baseName() strips characters outside [\w.\- ] for safe storage/URL use — spaces are
+    // preserved, but "(", ")", "—", and "%" are replaced with "_". This is existing,
+    // deliberate sanitization, not a defect: the upload still succeeds.
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename: 'Design Notes _v2_ _ 100_ draft.txt' }),
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('creates separate attachments for files sharing the same name but different content', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [
+        omlFile({ originalname: 'notes.txt', mimetype: 'text/plain', buffer: Buffer.from('version one') }),
+        omlFile({ originalname: 'notes.txt', mimetype: 'text/plain', buffer: Buffer.from('version two') }),
+      ],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.projectAttachment.create).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      data: expect.objectContaining({ filename: 'notes.txt', order: 0 }),
+    }));
+    expect(prisma.projectAttachment.create).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      data: expect.objectContaining({ filename: 'notes.txt', order: 1 }),
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('appends uploaded attachments after existing ones, continuing the order sequence', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectAttachment.findMany.mockResolvedValue([attachment]);
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ originalname: 'notes.txt', mimetype: 'text/plain' })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ order: 1 }),
+    }));
+  });
 });
