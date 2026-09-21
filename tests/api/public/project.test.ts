@@ -1,4 +1,8 @@
-import { createPublicProjectHandler, createPublicProjectImagesHandler } from '@/src/api/v1/public/project';
+import {
+  createPublicProjectAttachmentsHandler,
+  createPublicProjectHandler,
+  createPublicProjectImagesHandler,
+} from '@/src/api/v1/public/project';
 
 function mockResponse() {
   return {
@@ -278,5 +282,119 @@ describe('GET /api/v1/public/project/:slug/images', () => {
     expect(res.json).toHaveBeenCalledWith({
       images: manyImages.map(({ id, url, order }) => ({ id, url, order })),
     });
+  });
+});
+
+describe('GET /api/v1/public/project/:slug/attachments', () => {
+  const attachments = [
+    {
+      id: 'attachment-1',
+      projectId: 'project-1',
+      filename: 'orders-portal.oml',
+      fileType: 'application/octet-stream',
+      fileSize: 68,
+      isOmlFile: true,
+      order: 0,
+      omlMetadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+    },
+    {
+      id: 'attachment-2',
+      projectId: 'project-1',
+      filename: 'architecture.pdf',
+      fileType: 'application/pdf',
+      fileSize: 42,
+      isOmlFile: false,
+      order: 1,
+      omlMetadata: null,
+    },
+  ];
+
+  function setup(projectResult: { id: string; visibility: string } | null = { id: 'project-1', visibility: 'PUBLISHED' }) {
+    const prisma = {
+      project: {
+        findFirst: jest.fn().mockResolvedValue(projectResult),
+      },
+      projectAttachment: {
+        findMany: jest.fn().mockResolvedValue(attachments),
+      },
+    };
+    const handler = createPublicProjectAttachmentsHandler({ prisma });
+    const res = mockResponse();
+
+    return { prisma, handler, res };
+  }
+
+  it('returns ordered attachments with metadata and a public download url for published projects', async () => {
+    const { prisma, handler, res } = setup();
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(prisma.project.findFirst).toHaveBeenCalledWith({ where: { slug: 'portfolio-builder' } });
+    expect(prisma.projectAttachment.findMany).toHaveBeenCalledWith({
+      where: { projectId: 'project-1' },
+      include: { omlMetadata: true },
+      orderBy: { order: 'asc' },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      attachments: [
+        {
+          id: 'attachment-1',
+          filename: 'orders-portal.oml',
+          fileType: 'application/octet-stream',
+          fileSize: 68,
+          isOmlFile: true,
+          order: 0,
+          metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+          downloadUrl: '/api/v1/public/projects/project-1/attachments/attachment-1',
+        },
+        {
+          id: 'attachment-2',
+          filename: 'architecture.pdf',
+          fileType: 'application/pdf',
+          fileSize: 42,
+          isOmlFile: false,
+          order: 1,
+          metadata: null,
+          downloadUrl: '/api/v1/public/projects/project-1/attachments/attachment-2',
+        },
+      ],
+    });
+  });
+
+  it('returns 403 for unpublished projects', async () => {
+    const { prisma, handler, res } = setup({ id: 'project-1', visibility: 'DRAFT' });
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(prisma.projectAttachment.findMany).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'project_not_public',
+      message: 'Project is not public.',
+    });
+  });
+
+  it('returns 404 when the project is missing', async () => {
+    const { prisma, handler, res } = setup(null);
+
+    await handler({ params: { slug: 'missing-project' } } as never, res as never);
+
+    expect(prisma.projectAttachment.findMany).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'project_not_found',
+      message: 'Project not found.',
+    });
+  });
+
+  it('returns an empty list when the project has no attachments', async () => {
+    const { prisma, handler, res } = setup();
+    prisma.projectAttachment.findMany.mockResolvedValue([]);
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ attachments: [] });
   });
 });

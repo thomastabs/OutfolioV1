@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, BadgeCheck, ImageIcon, Images, Lock, Tag, UserRound } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Download, ImageIcon, Images, Lock, Paperclip, Tag, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BackButton } from '@/app/components/ui/back-button';
@@ -39,7 +39,19 @@ type PublicProjectImage = {
   order: number;
 };
 
+type PublicProjectAttachment = {
+  id: string;
+  filename: string;
+  fileType: string;
+  fileSize: number;
+  isOmlFile: boolean;
+  order: number;
+  metadata: { moduleName: string; version: string } | null;
+  downloadUrl: string;
+};
+
 type ImageLoadState = 'idle' | 'loading' | 'ready' | 'error';
+type AttachmentLoadState = 'idle' | 'loading' | 'ready' | 'error';
 type LoadState = 'loading' | 'ready' | 'access-denied' | 'not-found' | 'error';
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -93,6 +105,13 @@ function GalleryImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  const kib = bytes / 1024;
+  if (kib < 1024) return `${Math.max(1, Math.round(kib))} KB`;
+  return `${(kib / 1024).toFixed(1)} MB`;
+}
+
 function ProjectStateCard({ title, message }: { title: string; message: string }) {
   return (
     <main className="min-h-screen bg-background px-6 py-10">
@@ -119,15 +138,61 @@ export default function PublicProjectPage() {
   const [project, setProject] = useState<PublicProject | null>(null);
   const [images, setImages] = useState<PublicProjectImage[]>([]);
   const [imageState, setImageState] = useState<ImageLoadState>('idle');
+  const [attachments, setAttachments] = useState<PublicProjectAttachment[]>([]);
+  const [attachmentState, setAttachmentState] = useState<AttachmentLoadState>('idle');
 
   useEffect(() => {
     let isActive = true;
+
+    async function loadImages() {
+      setImageState('loading');
+      try {
+        const imagesResponse = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}/images`);
+        if (!isActive) return;
+
+        if (!imagesResponse.ok) {
+          setImageState('error');
+          return;
+        }
+
+        const imageData = (await imagesResponse.json()) as { images?: PublicProjectImage[] };
+        setImages(Array.isArray(imageData.images) ? imageData.images : []);
+        setImageState('ready');
+      } catch {
+        if (isActive) {
+          setImageState('error');
+        }
+      }
+    }
+
+    async function loadAttachments() {
+      setAttachmentState('loading');
+      try {
+        const attachmentsResponse = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}/attachments`);
+        if (!isActive) return;
+
+        if (!attachmentsResponse.ok) {
+          setAttachmentState('error');
+          return;
+        }
+
+        const attachmentData = (await attachmentsResponse.json()) as { attachments?: PublicProjectAttachment[] };
+        setAttachments(Array.isArray(attachmentData.attachments) ? attachmentData.attachments : []);
+        setAttachmentState('ready');
+      } catch {
+        if (isActive) {
+          setAttachmentState('error');
+        }
+      }
+    }
 
     async function loadProject() {
       setState('loading');
       setProject(null);
       setImages([]);
       setImageState('idle');
+      setAttachments([]);
+      setAttachmentState('idle');
 
       try {
         const response = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}`);
@@ -152,25 +217,8 @@ export default function PublicProjectPage() {
         const data = (await response.json()) as PublicProject;
         setProject(data);
         setState('ready');
-        setImageState('loading');
 
-        try {
-          const imagesResponse = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}/images`);
-          if (!isActive) return;
-
-          if (!imagesResponse.ok) {
-            setImageState('error');
-            return;
-          }
-
-          const imageData = (await imagesResponse.json()) as { images?: PublicProjectImage[] };
-          setImages(Array.isArray(imageData.images) ? imageData.images : []);
-          setImageState('ready');
-        } catch {
-          if (isActive) {
-            setImageState('error');
-          }
-        }
+        await Promise.all([loadImages(), loadAttachments()]);
       } catch {
         if (isActive) {
           setState('error');
@@ -262,6 +310,59 @@ export default function PublicProjectPage() {
                   </figure>
                 ))}
               </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow" aria-label="Project attachments">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5 text-primary" aria-hidden="true" />
+              Attachments
+            </CardTitle>
+            <CardDescription>Downloadable files shared alongside this project.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {attachmentState === 'loading' ? (
+              <p className="text-muted-foreground">Loading project attachments...</p>
+            ) : null}
+            {attachmentState === 'error' ? (
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive" role="status">
+                Project attachments could not be loaded.
+              </p>
+            ) : null}
+            {attachmentState === 'ready' && attachments.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+                No project attachments are available yet.
+              </p>
+            ) : null}
+            {attachments.length > 0 ? (
+              <ul className="grid gap-2">
+                {attachments.map((attachment) => (
+                  <li
+                    key={attachment.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3"
+                  >
+                    <div className="grid gap-1">
+                      <span className="font-semibold">{attachment.filename}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {attachment.isOmlFile && attachment.metadata
+                          ? `${attachment.metadata.moduleName} · ${attachment.metadata.version} · `
+                          : ''}
+                        {attachment.fileType || 'Unknown type'} · {formatFileSize(attachment.fileSize)}
+                      </span>
+                    </div>
+                    <a
+                      className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-xl shadow-sm')}
+                      href={attachment.downloadUrl}
+                      aria-label={`Download ${attachment.filename}`}
+                    >
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      Download
+                    </a>
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </CardContent>
         </Card>

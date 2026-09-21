@@ -303,6 +303,13 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
     };
   }
 
+  if (method === 'GET' && first === 'public' && second === 'project' && third && fourth === 'attachments') {
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/public/project'), 'publicProjectAttachmentsHandler'),
+      params: { slug: third },
+    };
+  }
+
   if (method === 'GET' && first === 'public' && second === 'projects' && third && fourth === 'attachments' && fifth) {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/projects/attachments'), 'publicProjectAttachmentDownloadHandler'),

@@ -114,6 +114,94 @@ describe('PublicProjectPage', () => {
     expect(galleryImages[1]).toHaveAttribute('src', 'data:image/png;base64,one');
   });
 
+  it('fetches and displays public project attachments with download links', async () => {
+    const attachmentsResponse = {
+      attachments: [
+        {
+          id: 'attachment-1',
+          filename: 'orders-portal.oml',
+          fileType: 'application/octet-stream',
+          fileSize: 2048,
+          isOmlFile: true,
+          order: 0,
+          metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+          downloadUrl: '/api/v1/public/projects/project-1/attachments/attachment-1',
+        },
+        {
+          id: 'attachment-2',
+          filename: 'architecture.pdf',
+          fileType: 'application/pdf',
+          fileSize: 42,
+          isOmlFile: false,
+          order: 1,
+          metadata: null,
+          downloadUrl: '/api/v1/public/projects/project-1/attachments/attachment-2',
+        },
+      ],
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/public/project/portfolio-builder/attachments') {
+        return { ok: true, status: 200, json: async () => attachmentsResponse } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/public/project/portfolio-builder/attachments'),
+    );
+    expect(await screen.findByText('orders-portal.oml')).toBeInTheDocument();
+    expect(screen.getByText('architecture.pdf')).toBeInTheDocument();
+    expect(screen.getByText(/OrdersPortal.*1\.2\.3/)).toBeInTheDocument();
+
+    const firstLink = screen.getByRole('link', { name: 'Download orders-portal.oml' });
+    expect(firstLink).toHaveAttribute('href', '/api/v1/public/projects/project-1/attachments/attachment-1');
+    const secondLink = screen.getByRole('link', { name: 'Download architecture.pdf' });
+    expect(secondLink).toHaveAttribute('href', '/api/v1/public/projects/project-1/attachments/attachment-2');
+  });
+
+  it('shows a placeholder when a published project has no attachments', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/public/project/portfolio-builder/attachments') {
+        return { ok: true, status: 200, json: async () => ({ attachments: [] }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(await screen.findByText('No project attachments are available yet.')).toBeInTheDocument();
+  });
+
+  it('shows an attachments error message when public project attachments cannot be loaded', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      if (url === '/api/v1/public/project/portfolio-builder/attachments') {
+        return { ok: false, status: 500, json: async () => ({ error: 'unexpected_failure' }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(await screen.findByText('Project attachments could not be loaded.')).toBeInTheDocument();
+  });
+
   it('renders a large number of gallery images without truncating', async () => {
     const manyImages = {
       images: Array.from({ length: 20 }, (_, index) => ({

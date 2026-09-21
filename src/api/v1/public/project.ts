@@ -31,6 +31,16 @@ type PublicProjectImageRecord = {
   order?: number | null;
 };
 
+type PublicProjectAttachmentRecord = {
+  id: string;
+  filename: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+  isOmlFile?: boolean | null;
+  order?: number | null;
+  omlMetadata?: { moduleName: string; version: string } | null;
+};
+
 type PublicProjectDependencies = {
   prisma: {
     project: {
@@ -46,6 +56,21 @@ type PublicProjectImagesDependencies = {
     };
     projectImage: {
       findMany(args: { where: { projectId: string }; orderBy: { order: 'asc' } }): Promise<PublicProjectImageRecord[]>;
+    };
+  };
+};
+
+type PublicProjectAttachmentsDependencies = {
+  prisma: {
+    project: {
+      findFirst(args: unknown): Promise<any>;
+    };
+    projectAttachment: {
+      findMany(args: {
+        where: { projectId: string };
+        include?: { omlMetadata: true };
+        orderBy: { order: 'asc' };
+      }): Promise<PublicProjectAttachmentRecord[]>;
     };
   };
 };
@@ -87,6 +112,24 @@ function serializeImage(image: PublicProjectImageRecord) {
     id: image.id,
     url: image.url,
     order: image.order ?? 0,
+  };
+}
+
+function serializeAttachment(projectId: string, attachment: PublicProjectAttachmentRecord) {
+  return {
+    id: attachment.id,
+    filename: attachment.filename,
+    fileType: attachment.fileType ?? '',
+    fileSize: attachment.fileSize ?? 0,
+    isOmlFile: Boolean(attachment.isOmlFile),
+    order: attachment.order ?? 0,
+    metadata: attachment.omlMetadata
+      ? {
+          moduleName: attachment.omlMetadata.moduleName,
+          version: attachment.omlMetadata.version,
+        }
+      : null,
+    downloadUrl: `/api/v1/public/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(attachment.id)}`,
   };
 }
 
@@ -171,6 +214,47 @@ export function createPublicProjectImagesHandler(deps: PublicProjectImagesDepend
   };
 }
 
+export function createPublicProjectAttachmentsHandler(deps: PublicProjectAttachmentsDependencies) {
+  return async function publicProjectAttachmentsHandler(req: Request, res: Response) {
+    try {
+      const slug = typeof req.params.slug === 'string' ? req.params.slug.trim() : '';
+      if (!slug) {
+        return notFound(res);
+      }
+
+      const project = await deps.prisma.project.findFirst({
+        where: { slug },
+      });
+
+      if (!project) {
+        return notFound(res);
+      }
+
+      if (project.visibility.toUpperCase() !== 'PUBLISHED') {
+        return res.status(403).json({
+          error: 'project_not_public',
+          message: 'Project is not public.',
+        });
+      }
+
+      const attachments = await deps.prisma.projectAttachment.findMany({
+        where: { projectId: project.id },
+        include: { omlMetadata: true },
+        orderBy: { order: 'asc' },
+      });
+
+      return res.status(200).json({
+        attachments: attachments.map((attachment) => serializeAttachment(project.id, attachment)),
+      });
+    } catch {
+      return res.status(500).json({
+        error: 'unexpected_failure',
+        message: 'Could not retrieve the public project attachments.',
+      });
+    }
+  };
+}
+
 export async function publicProjectHandler(req: Request, res: Response) {
   const { prisma } = await import('@/src/lib/prisma');
 
@@ -181,4 +265,10 @@ export async function publicProjectImagesHandler(req: Request, res: Response) {
   const { prisma } = await import('@/src/lib/prisma');
 
   return createPublicProjectImagesHandler({ prisma })(req, res);
+}
+
+export async function publicProjectAttachmentsHandler(req: Request, res: Response) {
+  const { prisma } = await import('@/src/lib/prisma');
+
+  return createPublicProjectAttachmentsHandler({ prisma })(req, res);
 }
