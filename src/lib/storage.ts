@@ -11,7 +11,14 @@ export async function ensureProjectMediaBucket() {
 
   const { data } = await supabaseAdmin.storage.getBucket(PROJECT_MEDIA_BUCKET);
   if (!data) {
-    await supabaseAdmin.storage.createBucket(PROJECT_MEDIA_BUCKET, { public: false });
+    const { error } = await supabaseAdmin.storage.createBucket(PROJECT_MEDIA_BUCKET, { public: false });
+    // Serverless functions can cold-start concurrently: two invocations
+    // may both see the bucket missing and both try to create it. Only
+    // one wins; tolerate the loser's "already exists" error rather than
+    // failing the upload it was about to make.
+    if (error && !/already exists/i.test(error.message)) {
+      throw error;
+    }
   }
 
   bucketEnsured = true;
