@@ -101,52 +101,63 @@ describe('ProjectsPage session guard', () => {
 
   it('refreshes the project list after a project edit is saved', async () => {
     const user = userEvent.setup();
-    jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({
+    let projectListFetchCount = 0;
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1' && init?.method === 'PUT') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'project-1',
+            title: 'Portfolio Builder',
+            slug: 'portfolio-builder',
+            summary: 'Updated summary.',
+            role: 'Developer',
+            status: 'draft',
+            visibility: 'draft',
+          }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects') {
+        projectListFetchCount += 1;
+        return {
+          ok: true,
+          json: async () => ({
+            projects: [
+              {
+                id: 'project-1',
+                title: 'Portfolio Builder',
+                slug: 'portfolio-builder',
+                summary: projectListFetchCount === 1 ? 'Original summary.' : 'Updated summary.',
+                role: 'Developer',
+                status: 'draft',
+                visibility: 'draft',
+              },
+            ],
+          }),
+        } as Response;
+      }
+
+      return {
         ok: true,
-        json: async () => ({
-          projects: [
-            {
-              id: 'project-1',
-              title: 'Portfolio Builder',
-              slug: 'portfolio-builder',
-              summary: 'Original summary.',
-              role: 'Developer',
-              status: 'draft',
-              visibility: 'draft',
-            },
-          ],
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          id: 'project-1',
-          title: 'Portfolio Builder',
-          slug: 'portfolio-builder',
-          summary: 'Updated summary.',
-          role: 'Developer',
-          status: 'draft',
-          visibility: 'draft',
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          projects: [
-            {
-              id: 'project-1',
-              title: 'Portfolio Builder',
-              slug: 'portfolio-builder',
-              summary: 'Updated summary.',
-              role: 'Developer',
-              status: 'draft',
-              visibility: 'draft',
-            },
-          ],
-        }),
-      } as Response);
+        json: async () => ({}),
+      } as Response;
+    });
 
     render(<ProjectsPage />);
 
