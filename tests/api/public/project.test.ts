@@ -1,4 +1,4 @@
-import { createPublicProjectHandler } from '@/src/api/v1/public/project';
+import { createPublicProjectHandler, createPublicProjectImagesHandler } from '@/src/api/v1/public/project';
 
 function mockResponse() {
   return {
@@ -154,6 +154,75 @@ describe('GET /api/v1/public/project/:slug', () => {
     await handler({ params: {} } as never, res as never);
 
     expect(prisma.project.findFirst).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'project_not_found',
+      message: 'Project not found.',
+    });
+  });
+});
+
+describe('GET /api/v1/public/project/:slug/images', () => {
+  const images = [
+    { id: 'image-2', projectId: 'project-1', url: 'data:image/jpeg;base64,two', order: 0 },
+    { id: 'image-1', projectId: 'project-1', url: 'data:image/png;base64,one', order: 1 },
+  ];
+
+  function setup(projectResult: { id: string; visibility: string } | null = { id: 'project-1', visibility: 'PUBLISHED' }) {
+    const prisma = {
+      project: {
+        findFirst: jest.fn().mockResolvedValue(projectResult),
+      },
+      projectImage: {
+        findMany: jest.fn().mockResolvedValue(images),
+      },
+    };
+    const handler = createPublicProjectImagesHandler({ prisma });
+    const res = mockResponse();
+
+    return { prisma, handler, res };
+  }
+
+  it('returns ordered images for published projects', async () => {
+    const { prisma, handler, res } = setup();
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(prisma.project.findFirst).toHaveBeenCalledWith({
+      where: { slug: 'portfolio-builder' },
+    });
+    expect(prisma.projectImage.findMany).toHaveBeenCalledWith({
+      where: { projectId: 'project-1' },
+      orderBy: { order: 'asc' },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      images: [
+        { id: 'image-2', url: 'data:image/jpeg;base64,two', order: 0 },
+        { id: 'image-1', url: 'data:image/png;base64,one', order: 1 },
+      ],
+    });
+  });
+
+  it('returns 403 for unpublished projects', async () => {
+    const { prisma, handler, res } = setup({ id: 'project-1', visibility: 'DRAFT' });
+
+    await handler({ params: { slug: 'portfolio-builder' } } as never, res as never);
+
+    expect(prisma.projectImage.findMany).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'project_not_public',
+      message: 'Project is not public.',
+    });
+  });
+
+  it('returns 404 when the project is missing', async () => {
+    const { prisma, handler, res } = setup(null);
+
+    await handler({ params: { slug: 'missing-project' } } as never, res as never);
+
+    expect(prisma.projectImage.findMany).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
       error: 'project_not_found',

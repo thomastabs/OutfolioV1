@@ -598,4 +598,48 @@ describe('ProjectEditor', () => {
     expect(await screen.findByText('Project image deleted.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete image 2/i })).not.toBeInTheDocument();
   });
+
+  it('shows an error when deleting a missing project gallery image fails', async () => {
+    const user = userEvent.setup();
+    const image = { id: 'image-1', url: 'data:image/png;base64,ZmFrZQ==', order: 0 };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [image] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images/image-1' && init?.method === 'DELETE') {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'image_not_found' }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    expect(await screen.findByAltText('Project gallery image 1')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /delete image 1/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete the project image.');
+    expect(screen.getByAltText('Project gallery image 1')).toBeInTheDocument();
+  });
 });

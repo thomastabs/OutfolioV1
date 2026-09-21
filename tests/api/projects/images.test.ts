@@ -197,4 +197,20 @@ describe('project image gallery API', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'validation_error' }));
   });
+
+  it('returns 404 when deleting an image that is missing from the project', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findFirst.mockResolvedValue(null);
+    const handler = createProjectImageDeleteHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1', imageId: 'missing-image' } } as never, res as never);
+
+    expect(prisma.projectImage.delete).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'image_not_found',
+      message: 'Image not found.',
+    });
+  });
 });

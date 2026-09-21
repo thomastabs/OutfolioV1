@@ -296,7 +296,14 @@ function findRoute(method: string, segments: string[]): RouteMatch | null {
     };
   }
 
-  if (method === 'GET' && first === 'public' && second === 'project' && third) {
+  if (method === 'GET' && first === 'public' && second === 'project' && third && fourth === 'images') {
+    return {
+      loadHandler: loadHandler(() => import('@/src/api/v1/public/project'), 'publicProjectImagesHandler'),
+      params: { slug: third },
+    };
+  }
+
+  if (method === 'GET' && first === 'public' && second === 'project' && third && !fourth) {
     return {
       loadHandler: loadHandler(() => import('@/src/api/v1/public/project'), 'publicProjectHandler'),
       params: { slug: third },

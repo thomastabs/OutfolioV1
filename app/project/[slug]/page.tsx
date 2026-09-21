@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, BadgeCheck, Lock, Tag, UserRound } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Images, Lock, Tag, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BackButton } from '@/app/components/ui/back-button';
@@ -33,6 +33,13 @@ type PublicProject = {
   };
 };
 
+type PublicProjectImage = {
+  id: string;
+  url: string;
+  order: number;
+};
+
+type ImageLoadState = 'idle' | 'loading' | 'ready' | 'error';
 type LoadState = 'loading' | 'ready' | 'access-denied' | 'not-found' | 'error';
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -68,6 +75,8 @@ export default function PublicProjectPage() {
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
   const [state, setState] = useState<LoadState>('loading');
   const [project, setProject] = useState<PublicProject | null>(null);
+  const [images, setImages] = useState<PublicProjectImage[]>([]);
+  const [imageState, setImageState] = useState<ImageLoadState>('idle');
 
   useEffect(() => {
     let isActive = true;
@@ -75,6 +84,8 @@ export default function PublicProjectPage() {
     async function loadProject() {
       setState('loading');
       setProject(null);
+      setImages([]);
+      setImageState('idle');
 
       try {
         const response = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}`);
@@ -99,6 +110,25 @@ export default function PublicProjectPage() {
         const data = (await response.json()) as PublicProject;
         setProject(data);
         setState('ready');
+        setImageState('loading');
+
+        try {
+          const imagesResponse = await fetch(`/api/v1/public/project/${encodeURIComponent(slug)}/images`);
+          if (!isActive) return;
+
+          if (!imagesResponse.ok) {
+            setImageState('error');
+            return;
+          }
+
+          const imageData = (await imagesResponse.json()) as { images?: PublicProjectImage[] };
+          setImages(Array.isArray(imageData.images) ? imageData.images : []);
+          setImageState('ready');
+        } catch {
+          if (isActive) {
+            setImageState('error');
+          }
+        }
       } catch {
         if (isActive) {
           setState('error');
@@ -157,6 +187,49 @@ export default function PublicProjectPage() {
           <Field label="Role" value={project.role} />
           <Field label="Status" value={project.status} />
         </dl>
+
+        <Card className="rounded-2xl shadow" aria-label="Project image gallery">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Images className="h-5 w-5 text-primary" aria-hidden="true" />
+              Project gallery
+            </CardTitle>
+            <CardDescription>Published screenshots and project visuals shown in their saved order.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {imageState === 'loading' ? (
+              <p className="text-muted-foreground">Loading project images...</p>
+            ) : null}
+            {imageState === 'error' ? (
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive" role="status">
+                Project images could not be loaded.
+              </p>
+            ) : null}
+            {imageState === 'ready' && images.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+                No project images are available yet.
+              </p>
+            ) : null}
+            {images.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {images.map((image, index) => (
+                  <figure className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm" key={image.id}>
+                    <div className="aspect-video bg-muted">
+                      <img
+                        src={image.url}
+                        alt={`${project.title} gallery image ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <figcaption className="px-3 py-2 text-sm font-medium text-muted-foreground">
+                      Image {index + 1}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
 
         <Card className="rounded-2xl shadow" aria-label="Project tags">
           <CardHeader>

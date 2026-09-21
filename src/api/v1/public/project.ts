@@ -25,22 +25,27 @@ type PublicProjectRecord = {
   };
 };
 
+type PublicProjectImageRecord = {
+  id: string;
+  url: string;
+  order?: number | null;
+};
+
 type PublicProjectDependencies = {
   prisma: {
     project: {
-      findFirst(args: {
-        where: { slug: string };
-        include: {
-          owner: {
-            select: {
-              username: true;
-              profile: {
-                select: { name: true };
-              };
-            };
-          };
-        };
-      }): Promise<PublicProjectRecord | null>;
+      findFirst(args: unknown): Promise<any>;
+    };
+  };
+};
+
+type PublicProjectImagesDependencies = {
+  prisma: {
+    project: {
+      findFirst(args: unknown): Promise<any>;
+    };
+    projectImage: {
+      findMany(args: { where: { projectId: string }; orderBy: { order: 'asc' } }): Promise<PublicProjectImageRecord[]>;
     };
   };
 };
@@ -74,6 +79,14 @@ function serializeProject(project: PublicProjectRecord) {
       username: project.owner.username,
       name: project.owner.profile?.name ?? '',
     },
+  };
+}
+
+function serializeImage(image: PublicProjectImageRecord) {
+  return {
+    id: image.id,
+    url: image.url,
+    order: image.order ?? 0,
   };
 }
 
@@ -120,8 +133,52 @@ export function createPublicProjectHandler(deps: PublicProjectDependencies) {
   };
 }
 
+export function createPublicProjectImagesHandler(deps: PublicProjectImagesDependencies) {
+  return async function publicProjectImagesHandler(req: Request, res: Response) {
+    try {
+      const slug = typeof req.params.slug === 'string' ? req.params.slug.trim() : '';
+      if (!slug) {
+        return notFound(res);
+      }
+
+      const project = await deps.prisma.project.findFirst({
+        where: { slug },
+      });
+
+      if (!project) {
+        return notFound(res);
+      }
+
+      if (project.visibility.toUpperCase() !== 'PUBLISHED') {
+        return res.status(403).json({
+          error: 'project_not_public',
+          message: 'Project is not public.',
+        });
+      }
+
+      const images = await deps.prisma.projectImage.findMany({
+        where: { projectId: project.id },
+        orderBy: { order: 'asc' },
+      });
+
+      return res.status(200).json({ images: images.map(serializeImage) });
+    } catch {
+      return res.status(500).json({
+        error: 'unexpected_failure',
+        message: 'Could not retrieve the public project images.',
+      });
+    }
+  };
+}
+
 export async function publicProjectHandler(req: Request, res: Response) {
   const { prisma } = await import('@/src/lib/prisma');
 
   return createPublicProjectHandler({ prisma })(req, res);
+}
+
+export async function publicProjectImagesHandler(req: Request, res: Response) {
+  const { prisma } = await import('@/src/lib/prisma');
+
+  return createPublicProjectImagesHandler({ prisma })(req, res);
 }

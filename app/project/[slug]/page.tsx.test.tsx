@@ -31,6 +31,13 @@ const projectResponse = {
   },
 };
 
+const imageResponse = {
+  images: [
+    { id: 'image-2', url: 'data:image/jpeg;base64,two', order: 0 },
+    { id: 'image-1', url: 'data:image/png;base64,one', order: 1 },
+  ],
+};
+
 describe('PublicProjectPage', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -39,11 +46,21 @@ describe('PublicProjectPage', () => {
   });
 
   it('fetches and displays a published project case study', async () => {
-    jest.spyOn(global, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => projectResponse,
-    } as Response);
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => projectResponse,
+      } as Response;
+    });
 
     render(<PublicProjectPage />);
 
@@ -65,6 +82,59 @@ describe('PublicProjectPage', () => {
     expect(screen.getByText('Next.js, Prisma, and Supabase.')).toBeInTheDocument();
     expect(screen.getByText('Designed and built the project workflow.')).toBeInTheDocument();
     expect(screen.getByText('A reusable portfolio entry for external viewers.')).toBeInTheDocument();
+    expect(await screen.findByText('No project images are available yet.')).toBeInTheDocument();
+  });
+
+  it('fetches and displays the ordered public project image gallery', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => imageResponse,
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => projectResponse,
+      } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Portfolio Builder' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/public/project/portfolio-builder/images'),
+    );
+    const galleryImages = await screen.findAllByRole('img', { name: /portfolio builder gallery image/i });
+    expect(galleryImages).toHaveLength(2);
+    expect(galleryImages[0]).toHaveAttribute('src', 'data:image/jpeg;base64,two');
+    expect(galleryImages[1]).toHaveAttribute('src', 'data:image/png;base64,one');
+  });
+
+  it('shows a gallery error message when public project images cannot be loaded', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'unexpected_failure' }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => projectResponse,
+      } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Portfolio Builder' })).toBeInTheDocument();
+    expect(await screen.findByText('Project images could not be loaded.')).toBeInTheDocument();
   });
 
   it('shows an access denied message for unpublished or private projects', async () => {
