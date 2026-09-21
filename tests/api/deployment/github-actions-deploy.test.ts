@@ -21,7 +21,7 @@ describe('GitHub Actions deployment workflow', () => {
     expect(source).toContain('vercel deploy --prod');
   });
 
-  it('runs database migrations against the pulled production environment before deploying', () => {
+  it('runs database migrations against production before deploying', () => {
     const source = fs.readFileSync(workflowPath, 'utf8');
 
     const pullIndex = source.indexOf('vercel pull');
@@ -33,7 +33,7 @@ describe('GitHub Actions deployment workflow', () => {
     expect(deployIndex).toBeGreaterThan(-1);
     expect(migrateIndex).toBeGreaterThan(pullIndex);
     expect(deployIndex).toBeGreaterThan(migrateIndex);
-    expect(source).toContain('.vercel/.env.production.local');
+    expect(source).toContain('DATABASE_URL: ${{ secrets.DATABASE_URL }}');
   });
 
   it('references deployment secrets without committing secret values', () => {

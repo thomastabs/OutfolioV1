@@ -77,11 +77,9 @@ jobs:
         run: pnpm dlx vercel pull --yes --environment=production --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Run database migrations
-        run: |
-          set -a
-          source .vercel/.env.production.local
-          set +a
-          pnpm prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm prisma migrate deploy
 
       - name: Deploy to Vercel production
         run: pnpm dlx vercel deploy --prod --yes --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
