@@ -307,6 +307,26 @@ describe('HomePage', () => {
     expect(within(list).queryByRole('link', { name: /View full project/i })).not.toBeInTheDocument();
   });
 
+  it('shows the call to action only on published cards within a mixed list', async () => {
+    mockHomeRequests({
+      dashboard: {
+        ...dashboardResponse,
+        publishedProjects: [
+          dashboardResponse.publishedProjects[0],
+          { ...dashboardResponse.publishedProjects[1], visibility: 'UNPUBLISHED' },
+        ],
+      },
+    });
+
+    render(<HomePage />);
+
+    const list = await screen.findByRole('list', { name: 'Published project highlights' });
+    expect(within(list).getByRole('link', { name: 'View full project: Portfolio Builder' })).toBeInTheDocument();
+    expect(
+      within(list).queryByRole('link', { name: 'View full project: Case Study API' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('falls back to a project highlight placeholder when a cover image fails to load', async () => {
     mockHomeRequests();
 
