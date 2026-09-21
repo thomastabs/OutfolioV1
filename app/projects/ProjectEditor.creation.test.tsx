@@ -126,6 +126,57 @@ describe('Story 9563893: ProjectEditor media upload during project creation', ()
     expect(await screen.findByText('Project draft created with media.')).toBeInTheDocument();
   });
 
+  it('rolls back the created draft when create-time media upload fails', async () => {
+    const user = userEvent.setup();
+    const onProjectCreated = jest.fn();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        return okResponse({
+          ...createdProject,
+          coverImageUrl: body.coverImageUrl,
+        });
+      }
+
+      if (url === '/api/v1/projects/project-1/images' && init?.method === 'POST') {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ message: 'Image upload failed.' }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1' && init?.method === 'DELETE') {
+        return okResponse({ success: true });
+      }
+
+      throw new Error(`Unexpected fetch: ${String(url)}`);
+    });
+
+    render(<ProjectEditor onProjectCreated={onProjectCreated} />);
+
+    await user.type(screen.getByLabelText(/^title$/i), 'Creation Media Project');
+    await user.type(screen.getByLabelText(/^summary$/i), 'Created with project media.');
+    await user.type(screen.getByLabelText(/^role$/i), 'Developer');
+    await user.upload(
+      screen.getByLabelText(/upload cover image/i),
+      new File(['cover'], 'cover.png', { type: 'image/png' }),
+    );
+    await user.upload(
+      screen.getByLabelText(/image files/i),
+      new File(['screen'], 'screen.png', { type: 'image/png' }),
+    );
+
+    await user.click(screen.getByRole('button', { name: /create project/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1', expect.objectContaining({
+      method: 'DELETE',
+    })));
+    expect(onProjectCreated).not.toHaveBeenCalled();
+    expect(await screen.findByText('Project media upload failed, so the new draft was rolled back.')).toBeInTheDocument();
+  });
+
   it('prevents invalid create-mode media selections before submission', async () => {
     const user = userEvent.setup({ applyAccept: false });
 

@@ -372,6 +372,16 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
     return Array.isArray(data.attachments) ? data.attachments : [];
   }
 
+  async function rollbackCreatedDraft(projectId: string) {
+    const response = await fetch(`/api/v1/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error('Project media upload failed, and the new draft could not be rolled back automatically.');
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage('');
@@ -442,7 +452,14 @@ export function ProjectEditor({ project, onProjectCreated, onProjectUpdated }: P
               } as ProjectSummary)
             : createdProject);
         } catch (uploadError) {
-          setMessage(uploadError instanceof Error ? uploadError.message : 'Project was created, but media uploads failed.');
+          try {
+            await rollbackCreatedDraft(createdProject.id);
+            setMessage('Project media upload failed, so the new draft was rolled back.');
+          } catch (rollbackError) {
+            setMessage(rollbackError instanceof Error
+              ? rollbackError.message
+              : 'Project media upload failed, and the new draft could not be rolled back automatically.');
+          }
           return;
         }
       }
