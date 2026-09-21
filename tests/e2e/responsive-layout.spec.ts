@@ -36,19 +36,23 @@ async function expectNoHorizontalOverflow(page: Page) {
     const hasOverflow = document.documentElement.scrollWidth > clientWidth + 1;
     if (!hasOverflow) return { hasOverflow, culprit: '' };
 
-    // Walk every element and report the widest one that pokes past the
-    // viewport, so a failure names the actual offending element instead of
-    // just the fact of overflow.
-    let widest: { selector: string; right: number } | null = null;
+    // An overflowing child pushes every ancestor's own bounding rect past
+    // the viewport too, so reporting "widest" always just points at <body>.
+    // Report every element whose own right edge overflows but whose
+    // PARENT does not - that pinpoints the actual element introducing the
+    // excess width, not just everything downstream of it.
+    const originators: string[] = [];
     for (const el of Array.from(document.querySelectorAll('*'))) {
       const rect = el.getBoundingClientRect();
-      if (rect.right > clientWidth + 1 && (!widest || rect.right > widest.right)) {
+      const parentRect = el.parentElement?.getBoundingClientRect();
+      const parentFits = !parentRect || parentRect.right <= clientWidth + 1;
+      if (rect.right > clientWidth + 1 && parentFits) {
         const classAttr = el.getAttribute('class');
         const selector = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${classAttr ? `.${classAttr.trim().split(/\s+/).join('.')}` : ''}`;
-        widest = { selector, right: rect.right };
+        originators.push(`${selector} (right edge ${Math.round(rect.right)}px, parent right edge ${parentRect ? Math.round(parentRect.right) : 'n/a'}px, viewport ${clientWidth}px)`);
       }
     }
-    return { hasOverflow, culprit: widest ? `${widest.selector} (right edge ${widest.right}px vs viewport ${clientWidth}px)` : 'unknown' };
+    return { hasOverflow, culprit: originators.length > 0 ? originators.join(' | ') : 'unknown (no single element right edge exceeds its own parent)' };
   });
 
   expect(overflowInfo.hasOverflow, `page should not overflow horizontally at this viewport; widest offender: ${overflowInfo.culprit}`).toBe(false);
