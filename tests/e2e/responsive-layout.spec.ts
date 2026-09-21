@@ -36,24 +36,22 @@ async function expectNoHorizontalOverflow(page: Page) {
     const hasOverflow = document.documentElement.scrollWidth > clientWidth + 1;
     if (!hasOverflow) return { hasOverflow, culprit: '' };
 
-    // A grid item's own bounding box overflows its (correctly sized)
-    // parent as soon as ANY descendant's min-content is wider than the
-    // track, and every ancestor up to that grid item reports the same
-    // inflated width - so naming "whose parent fits" only ever points at
-    // top-level container divs, not the actual leaf driving it. Instead,
-    // report the widest elements on the page by their own width, which
-    // surfaces the actual leaf (its tag/class/text), regardless of nesting.
-    const widthByEl = Array.from(document.querySelectorAll('*'))
-      .map((el) => ({ el, width: el.getBoundingClientRect().width }))
-      .sort((a, b) => b.width - a.width)
-      .slice(0, 8)
-      .map(({ el, width }) => {
+    // Every element's own getBoundingClientRect() stayed within the
+    // viewport (grid stretch resizes each item's outer box to fit its
+    // track), so the overflow must be an element whose CONTENT overflows
+    // ITSELF - i.e. scrollWidth > clientWidth on the element itself, with
+    // overflow:visible (the default) leaking it up to the document. That's
+    // the real signature of a shrunk flex/grid item whose un-wrappable
+    // content (a form control, an unbroken string) didn't shrink with it.
+    const selfOverflowing = Array.from(document.querySelectorAll('*'))
+      .filter((el) => el.scrollWidth > el.clientWidth + 1)
+      .map((el) => {
         const classAttr = el.getAttribute('class');
         const selector = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${classAttr ? `.${classAttr.trim().split(/\s+/).join('.')}` : ''}`;
         const text = (el.textContent || '').trim().slice(0, 50);
-        return `${selector} width=${Math.round(width)}px text="${text}"`;
+        return `${selector} scrollWidth=${el.scrollWidth}px clientWidth=${el.clientWidth}px text="${text}"`;
       });
-    return { hasOverflow, culprit: widthByEl.join(' || ') };
+    return { hasOverflow, culprit: selfOverflowing.length > 0 ? selfOverflowing.join(' || ') : 'no element has scrollWidth > clientWidth on itself' };
   });
 
   expect(overflowInfo.hasOverflow, `page should not overflow horizontally at this viewport; widest offender: ${overflowInfo.culprit}`).toBe(false);
