@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, BadgeCheck, Images, Lock, Tag, UserRound } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, ImageIcon, Images, Lock, Tag, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BackButton } from '@/app/components/ui/back-button';
@@ -48,6 +48,48 @@ function Field({ label, value }: { label: string; value: string }) {
       <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-semibold">{value || 'Not added yet.'}</dd>
     </div>
+  );
+}
+
+function ProjectCoverImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src.trim() || failed) {
+    return (
+      <Card className="rounded-2xl border-dashed shadow">
+        <CardContent className="p-6 text-center text-muted-foreground">No cover image added yet.</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <img
+      className="rounded-3xl border border-border shadow-polish"
+      src={src}
+      alt={alt}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function GalleryImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src.trim() || failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground" role="img" aria-label={alt}>
+        <ImageIcon className="h-6 w-6" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-full w-full object-cover"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -174,13 +216,7 @@ export default function PublicProjectPage() {
           </CardHeader>
         </Card>
 
-        {project.coverImageUrl ? (
-          <img className="rounded-3xl border border-border shadow-polish" src={project.coverImageUrl} alt={`${project.title} cover image`} />
-        ) : (
-          <Card className="rounded-2xl border-dashed shadow">
-            <CardContent className="p-6 text-center text-muted-foreground">No cover image added yet.</CardContent>
-          </Card>
-        )}
+        <ProjectCoverImage src={project.coverImageUrl} alt={`${project.title} cover image`} />
 
         <dl className="grid gap-4 md:grid-cols-3">
           <Field label="Project type" value={project.projectType} />
@@ -215,10 +251,9 @@ export default function PublicProjectPage() {
                 {images.map((image, index) => (
                   <figure className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm" key={image.id}>
                     <div className="aspect-video bg-muted">
-                      <img
+                      <GalleryImage
                         src={image.url}
                         alt={`${project.title} gallery image ${index + 1}`}
-                        className="h-full w-full object-cover"
                       />
                     </div>
                     <figcaption className="px-3 py-2 text-sm font-medium text-muted-foreground">

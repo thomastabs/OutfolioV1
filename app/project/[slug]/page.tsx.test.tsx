@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PublicProjectPage from './page';
 
 let routeParams = { slug: 'portfolio-builder' };
@@ -157,7 +157,7 @@ describe('PublicProjectPage', () => {
     expect(galleryImages).toHaveLength(2);
   });
 
-  it('renders without crashing when a gallery image has an empty url', async () => {
+  it('shows a placeholder instead of a broken image when a gallery image has an empty url', async () => {
     const emptyUrlImages = {
       images: [{ id: 'image-1', url: '', order: 0 }],
     };
@@ -171,7 +171,44 @@ describe('PublicProjectPage', () => {
 
     render(<PublicProjectPage />);
 
-    expect(await screen.findByRole('img', { name: 'Portfolio Builder gallery image 1' })).toHaveAttribute('src', '');
+    const placeholder = await screen.findByRole('img', { name: 'Portfolio Builder gallery image 1' });
+    expect(placeholder).not.toHaveAttribute('src');
+  });
+
+  it('falls back to a placeholder when a gallery image fails to load', async () => {
+    const oneImage = { images: [{ id: 'image-1', url: 'https://example.com/broken.png', order: 0 }] };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => oneImage } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    const image = await screen.findByRole('img', { name: 'Portfolio Builder gallery image 1' });
+    fireEvent.error(image);
+
+    const placeholder = await screen.findByRole('img', { name: 'Portfolio Builder gallery image 1' });
+    expect(placeholder).not.toHaveAttribute('src');
+  });
+
+  it('falls back to a placeholder when the cover image fails to load', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/public/project/portfolio-builder/images') {
+        return { ok: true, status: 200, json: async () => ({ images: [] }) } as Response;
+      }
+
+      return { ok: true, status: 200, json: async () => projectResponse } as Response;
+    });
+
+    render(<PublicProjectPage />);
+
+    const coverImage = await screen.findByRole('img', { name: 'Portfolio Builder cover image' });
+    fireEvent.error(coverImage);
+
+    expect(await screen.findByText('No cover image added yet.')).toBeInTheDocument();
   });
 
   it('renders gallery images with special characters in the project title alt text safely', async () => {
