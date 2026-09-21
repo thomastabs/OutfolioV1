@@ -319,4 +319,24 @@ describe('project .oml attachments API', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ metadata });
   });
+
+  it('rejects corrupted .oml metadata extraction without storing the file', async () => {
+    const { deps, prisma } = setup();
+    const handler = createProjectOmlMetadataHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile({ buffer: Buffer.from('not an oml export') })],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(prisma.omlMetadata.upsert).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'invalid_oml_file',
+      message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+    });
+  });
 });

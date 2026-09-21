@@ -414,6 +414,80 @@ describe('ProjectEditor', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
     );
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeDisabled();
+  });
+
+  it('clears invalid .oml upload feedback when a new valid attachment is selected and uploaded', async () => {
+    const user = userEvent.setup();
+    const attachment = {
+      id: 'attachment-1',
+      filename: 'orders-portal.oml',
+      url: '/api/v1/projects/project-1/attachments/attachment-1/download',
+      fileSize: 128,
+      isOmlFile: true,
+      metadata: { moduleName: 'OrdersPortal', version: '1.2.3' },
+    };
+    let uploadAttempts = 0;
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      if (url === '/api/v1/projects/project-1/attachments' && !init) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/attachments' && init?.method === 'POST') {
+        uploadAttempts += 1;
+        if (uploadAttempts === 1) {
+          return {
+            ok: false,
+            status: 422,
+            json: async () => ({
+              error: 'invalid_oml_file',
+              message: 'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+            }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [attachment] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    await user.upload(screen.getByLabelText(/attachment files/i), new File(['corrupted invalid_oml'], 'broken.oml'));
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The uploaded .oml file is invalid or corrupted. Please upload a valid file.',
+    );
+
+    await user.upload(
+      screen.getByLabelText(/attachment files/i),
+      new File(['<moduleName>OrdersPortal</moduleName><version>1.2.3</version>'], 'orders-portal.oml', {
+        type: 'application/octet-stream',
+      }),
+    );
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload attachments/i })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: /upload attachments/i }));
+
+    expect(await screen.findByText('Project attachments were uploaded and .oml metadata was validated.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('OrdersPortal')).toBeInTheDocument();
   });
 
   it('lists, deletes, and reorders .oml attachments in edit mode', async () => {
@@ -481,6 +555,47 @@ describe('ProjectEditor', () => {
     await user.click(screen.getByRole('button', { name: /delete orders-portal\.oml/i }));
     expect(await screen.findByText('The project attachment was deleted.')).toBeInTheDocument();
     expect(screen.queryByText('orders-portal.oml')).not.toBeInTheDocument();
+  });
+
+  it('shows placeholders when an .oml attachment has no extracted metadata', async () => {
+    const orphanedOmlAttachment = {
+      id: 'attachment-1',
+      filename: 'legacy-export.oml',
+      url: '/download/legacy',
+      fileSize: 128,
+      isOmlFile: true,
+      fileType: 'application/octet-stream',
+      metadata: null,
+    };
+    jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === '/api/v1/projects/project-1/attachments') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [orphanedOmlAttachment] }),
+        } as Response;
+      }
+
+      if (url === '/api/v1/projects/project-1/images') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ images: [] }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ProjectEditor project={editableProject} onProjectUpdated={jest.fn()} />);
+
+    expect(await screen.findByText('legacy-export.oml')).toBeInTheDocument();
+    expect(screen.getByText('Unknown module')).toBeInTheDocument();
+    expect(screen.getByText('unknown')).toBeInTheDocument();
   });
 
   it('uploads multiple valid images and displays them in the project gallery', async () => {
