@@ -36,23 +36,24 @@ async function expectNoHorizontalOverflow(page: Page) {
     const hasOverflow = document.documentElement.scrollWidth > clientWidth + 1;
     if (!hasOverflow) return { hasOverflow, culprit: '' };
 
-    // An overflowing child pushes every ancestor's own bounding rect past
-    // the viewport too, so reporting "widest" always just points at <body>.
-    // Report every element whose own right edge overflows but whose
-    // PARENT does not - that pinpoints the actual element introducing the
-    // excess width, not just everything downstream of it.
-    const originators: string[] = [];
-    for (const el of Array.from(document.querySelectorAll('*'))) {
-      const rect = el.getBoundingClientRect();
-      const parentRect = el.parentElement?.getBoundingClientRect();
-      const parentFits = !parentRect || parentRect.right <= clientWidth + 1;
-      if (rect.right > clientWidth + 1 && parentFits) {
+    // A grid item's own bounding box overflows its (correctly sized)
+    // parent as soon as ANY descendant's min-content is wider than the
+    // track, and every ancestor up to that grid item reports the same
+    // inflated width - so naming "whose parent fits" only ever points at
+    // top-level container divs, not the actual leaf driving it. Instead,
+    // report the widest elements on the page by their own width, which
+    // surfaces the actual leaf (its tag/class/text), regardless of nesting.
+    const widthByEl = Array.from(document.querySelectorAll('*'))
+      .map((el) => ({ el, width: el.getBoundingClientRect().width }))
+      .sort((a, b) => b.width - a.width)
+      .slice(0, 8)
+      .map(({ el, width }) => {
         const classAttr = el.getAttribute('class');
         const selector = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${classAttr ? `.${classAttr.trim().split(/\s+/).join('.')}` : ''}`;
-        originators.push(`${selector} (right edge ${Math.round(rect.right)}px, parent right edge ${parentRect ? Math.round(parentRect.right) : 'n/a'}px, viewport ${clientWidth}px)`);
-      }
-    }
-    return { hasOverflow, culprit: originators.length > 0 ? originators.join(' | ') : 'unknown (no single element right edge exceeds its own parent)' };
+        const text = (el.textContent || '').trim().slice(0, 50);
+        return `${selector} width=${Math.round(width)}px text="${text}"`;
+      });
+    return { hasOverflow, culprit: widthByEl.join(' || ') };
   });
 
   expect(overflowInfo.hasOverflow, `page should not overflow horizontally at this viewport; widest offender: ${overflowInfo.culprit}`).toBe(false);
