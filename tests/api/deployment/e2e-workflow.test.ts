@@ -79,4 +79,15 @@ describe('E2E test workflow', () => {
     expect(source).not.toContain('runs-on: ubuntu-latest');
     expect(source).toMatch(/runs-on: ubuntu-\d+\.\d+/);
   });
+
+  it('installs webkit alongside chromium, since the iPhone 13 device project defaults to it', () => {
+    const source = fs.readFileSync(workflowPath, 'utf8');
+
+    const installMatch = source.match(/playwright install --with-deps ([^\n]+)/);
+    expect(installMatch).not.toBeNull();
+    const installedBrowsers = installMatch![1].trim().split(/\s+/);
+
+    expect(installedBrowsers).toContain('chromium');
+    expect(installedBrowsers).toContain('webkit');
+  });
 });
