@@ -31,10 +31,27 @@ const testProject = {
 };
 
 async function expectNoHorizontalOverflow(page: Page) {
-  const hasOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-  );
-  expect(hasOverflow, 'page should not overflow horizontally at this viewport').toBe(false);
+  const overflowInfo = await page.evaluate(() => {
+    const clientWidth = document.documentElement.clientWidth;
+    const hasOverflow = document.documentElement.scrollWidth > clientWidth + 1;
+    if (!hasOverflow) return { hasOverflow, culprit: '' };
+
+    // Walk every element and report the widest one that pokes past the
+    // viewport, so a failure names the actual offending element instead of
+    // just the fact of overflow.
+    let widest: { selector: string; right: number } | null = null;
+    for (const el of Array.from(document.querySelectorAll('*'))) {
+      const rect = el.getBoundingClientRect();
+      if (rect.right > clientWidth + 1 && (!widest || rect.right > widest.right)) {
+        const classAttr = el.getAttribute('class');
+        const selector = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${classAttr ? `.${classAttr.trim().split(/\s+/).join('.')}` : ''}`;
+        widest = { selector, right: rect.right };
+      }
+    }
+    return { hasOverflow, culprit: widest ? `${widest.selector} (right edge ${widest.right}px vs viewport ${clientWidth}px)` : 'unknown' };
+  });
+
+  expect(overflowInfo.hasOverflow, `page should not overflow horizontally at this viewport; widest offender: ${overflowInfo.culprit}`).toBe(false);
 }
 
 test('renders key pages responsively without horizontal overflow', async ({ page }, testInfo) => {
@@ -104,11 +121,13 @@ test('renders key pages responsively without horizontal overflow', async ({ page
     await test.step(`Verify responsive layout for ${target.path}`, async () => {
       await page.goto(target.path);
       await target.assertMarker(page);
-      await expectNoHorizontalOverflow(page);
+      // Screenshot before the overflow assertion so a failure still leaves
+      // a visual artifact behind to diagnose from.
       await page.screenshot({
         path: testInfo.outputPath(`${target.name}.png`),
         fullPage: true,
       });
+      await expectNoHorizontalOverflow(page);
     });
   }
 });
