@@ -269,6 +269,27 @@ describe('POST /api/v1/projects', () => {
     }));
   });
 
+  it('returns a graceful 500 rather than crashing when Supabase Storage is unavailable during creation', async () => {
+    const { deps, handler, res } = setup();
+    deps.storage.uploadProjectMedia.mockRejectedValueOnce(new Error('Storage temporarily unavailable'));
+
+    await handler({
+      headers: { cookie: 'next-auth.session-token=valid' },
+      body: validBody,
+      files: [{
+        fieldname: 'coverImage',
+        originalname: 'cover.png',
+        mimetype: 'image/png',
+        size: 5,
+        buffer: Buffer.from('cover'),
+      }],
+    } as never, res as never);
+
+    expect(deps.prisma.project.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unexpected_failure' }));
+  });
+
   it('rejects unsupported media during project creation before persisting anything', async () => {
     const { deps, handler, res } = setup();
 

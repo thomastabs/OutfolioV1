@@ -200,6 +200,23 @@ describe('project .oml attachments API', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  it('returns a graceful 500 rather than crashing when Supabase Storage is unavailable during upload', async () => {
+    const { deps, prisma, storage } = setup();
+    storage.uploadProjectMedia.mockRejectedValueOnce(new Error('Storage temporarily unavailable'));
+    const handler = createProjectAttachmentUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [omlFile()],
+    } as never, res as never);
+
+    expect(prisma.projectAttachment.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unexpected_failure' }));
+  });
+
   it('rejects unsupported file types', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectAttachmentUploadHandler(deps as never);

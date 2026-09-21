@@ -133,6 +133,42 @@ describe('project image gallery API', () => {
     });
   });
 
+  it('returns a graceful 500 rather than crashing when Supabase Storage is unavailable during upload', async () => {
+    const { deps, prisma } = setup();
+    uploadProjectMedia.mockRejectedValueOnce(new Error('Storage temporarily unavailable'));
+    const handler = createProjectImageUploadHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({
+      headers: {},
+      params: { id: 'project-1' },
+      files: [imageFile()],
+    } as never, res as never);
+
+    expect(prisma.projectImage.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'unexpected_failure' }));
+  });
+
+  it('lists legacy data-URL and Storage-backed images together correctly in the same gallery', async () => {
+    const { deps, prisma } = setup();
+    prisma.projectImage.findMany.mockResolvedValue([
+      firstImage,
+      { id: 'image-3', projectId: 'project-1', url: 'projects/project-1/images/image-3.png', order: 1 },
+    ]);
+    const handler = createProjectImageListHandler(deps as never);
+    const res = mockResponse();
+
+    await handler({ headers: {}, params: { id: 'project-1' } } as never, res as never);
+
+    expect(res.json).toHaveBeenCalledWith({
+      images: [
+        { id: 'image-1', url: firstImage.url, order: 0 },
+        { id: 'image-3', url: 'https://signed.example/projects/project-1/images/image-3.png', order: 1 },
+      ],
+    });
+  });
+
   it('rejects unsupported image file types', async () => {
     const { deps, prisma } = setup();
     const handler = createProjectImageUploadHandler(deps as never);
