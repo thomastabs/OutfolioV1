@@ -25,6 +25,7 @@ describe('session management utilities', () => {
   afterEach(() => {
     Date.now = realDateNow;
     delete process.env.NEXTAUTH_SECRET;
+    delete process.env.NEXTAUTH_URL;
     jest.restoreAllMocks();
   });
 
@@ -112,5 +113,21 @@ describe('session management utilities', () => {
     clearSessionCookie(res as never);
 
     expect(res.cookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, '', sessionCookieOptions(new Date(0)));
+  });
+
+  it('marks the session cookie Secure only when NEXTAUTH_URL is HTTPS, not by NODE_ENV', () => {
+    // `next start` always sets NODE_ENV to 'production', including in the
+    // E2E CI environment, which serves the app over plain HTTP. A Secure
+    // flag keyed off NODE_ENV would mark the cookie Secure there too, and
+    // WebKit (unlike Chromium) refuses to send a Secure cookie back over
+    // HTTP even on localhost, breaking every "authenticated" request.
+    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+    expect(sessionCookieOptions(new Date(0)).secure).toBe(false);
+
+    process.env.NEXTAUTH_URL = 'https://outfolio-v1.vercel.app';
+    expect(sessionCookieOptions(new Date(0)).secure).toBe(true);
+
+    delete process.env.NEXTAUTH_URL;
+    expect(sessionCookieOptions(new Date(0)).secure).toBe(false);
   });
 });

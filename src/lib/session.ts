@@ -38,7 +38,13 @@ export function sessionCookieOptions(expires: Date) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
+    // Keyed off NEXTAUTH_URL's scheme rather than NODE_ENV: `next start`
+    // always sets NODE_ENV to 'production', including in the E2E CI
+    // environment, which serves the app over plain HTTP. WebKit (Safari)
+    // strictly requires HTTPS for a Secure cookie, even on localhost, so
+    // deriving `secure` from NODE_ENV made every session look
+    // unauthenticated to WebKit whenever the app ran over HTTP.
+    secure: (process.env.NEXTAUTH_URL || '').startsWith('https://'),
     path: '/',
     expires,
   };
