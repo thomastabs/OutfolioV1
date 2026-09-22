@@ -23,6 +23,10 @@ function mockMatchMedia(matches: boolean) {
   };
 }
 
+function openMenu() {
+  return screen.getByRole('button', { name: /Theme:/ });
+}
+
 describe('ThemeSwitcher', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -30,12 +34,22 @@ describe('ThemeSwitcher', () => {
     mockMatchMedia(false);
   });
 
-  it('renders the three accessible theme options', () => {
+  it('renders a trigger button that opens a menu with the three theme options', async () => {
+    const user = userEvent.setup();
     render(<ThemeSwitcher />);
 
-    const select = screen.getByLabelText('Theme') as HTMLSelectElement;
-    const optionValues = Array.from(select.options).map((option) => option.value);
-    expect(optionValues).toEqual(['light', 'dark', 'system']);
+    expect(screen.queryByRole('menu', { name: 'Theme' })).not.toBeInTheDocument();
+
+    await user.click(openMenu());
+
+    const menu = screen.getByRole('menu', { name: 'Theme' });
+    const options = screen.getAllByRole('menuitemradio');
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining('Light'),
+      expect.stringContaining('Dark'),
+      expect.stringContaining('System'),
+    ]);
+    expect(menu).toBeInTheDocument();
   });
 
   it('defaults to system preference when no stored preference exists', async () => {
@@ -43,26 +57,29 @@ describe('ThemeSwitcher', () => {
     render(<ThemeSwitcher />);
 
     await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(true));
-    expect(screen.getByLabelText('Theme')).toHaveValue('system');
+    expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument();
   });
 
   it('restores a previously stored explicit preference on mount', async () => {
     localStorage.setItem(THEME_STORAGE_KEY, 'dark');
     render(<ThemeSwitcher />);
 
-    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('dark'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument());
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
   it('applies the dark class immediately when the user selects Dark, and saves the choice', async () => {
     const user = userEvent.setup();
     render(<ThemeSwitcher />);
-    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
 
-    await user.selectOptions(screen.getByLabelText('Theme'), 'dark');
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    expect(screen.getByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('removes the dark class when the user selects Light, and saves the choice', async () => {
@@ -71,16 +88,62 @@ describe('ThemeSwitcher', () => {
     render(<ThemeSwitcher />);
     await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(true));
 
-    await user.selectOptions(screen.getByLabelText('Theme'), 'light');
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Light/ }));
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
   });
 
+  it('marks the currently selected option as checked in the menu', async () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+    const user = userEvent.setup();
+    render(<ThemeSwitcher />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument());
+
+    await user.click(openMenu());
+
+    expect(screen.getByRole('menuitemradio', { name: /Dark/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('menuitemradio', { name: /Light/ })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('menuitemradio', { name: /System/ })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('closes the menu and returns focus to the trigger on Escape', async () => {
+    const user = userEvent.setup();
+    render(<ThemeSwitcher />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
+
+    await user.click(openMenu());
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(openMenu()).toHaveFocus();
+  });
+
+  it('closes the menu when clicking outside it', async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <ThemeSwitcher />
+        <button type="button">outside</button>
+      </div>,
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
+
+    await user.click(openMenu());
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'outside' }));
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('updates the theme dynamically when the system preference changes while "system" is selected', async () => {
     const { fireChange } = mockMatchMedia(false);
     render(<ThemeSwitcher />);
-    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
     expect(document.documentElement.classList.contains('dark')).toBe(false);
 
     fireChange(true);
@@ -92,9 +155,10 @@ describe('ThemeSwitcher', () => {
     const { fireChange } = mockMatchMedia(false);
     const user = userEvent.setup();
     render(<ThemeSwitcher />);
-    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
 
-    await user.selectOptions(screen.getByLabelText('Theme'), 'light');
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Light/ }));
     fireChange(true);
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
@@ -112,9 +176,10 @@ describe('ThemeSwitcher', () => {
       const user = userEvent.setup();
       render(<ThemeSwitcher />);
 
-      await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
 
-      await user.selectOptions(screen.getByLabelText('Theme'), 'dark');
+      await user.click(openMenu());
+      await user.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
       expect(document.documentElement.classList.contains('dark')).toBe(true);
     } finally {
       getItemSpy.mockRestore();
@@ -125,14 +190,16 @@ describe('ThemeSwitcher', () => {
   it('settles on a single consistent theme when toggled rapidly (Phase 4 edge case)', async () => {
     const user = userEvent.setup();
     render(<ThemeSwitcher />);
-    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme: System' })).toBeInTheDocument());
 
-    const select = screen.getByLabelText('Theme');
-    await user.selectOptions(select, 'dark');
-    await user.selectOptions(select, 'light');
-    await user.selectOptions(select, 'dark');
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Light/ }));
+    await user.click(openMenu());
+    await user.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
 
-    expect(select).toHaveValue('dark');
+    expect(screen.getByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
   });
