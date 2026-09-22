@@ -99,4 +99,41 @@ describe('ThemeSwitcher', () => {
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
+
+  it('still renders and applies a theme when localStorage is disabled/unavailable (Phase 4 edge case)', async () => {
+    const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Access is denied', 'SecurityError');
+    });
+    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Access is denied', 'SecurityError');
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<ThemeSwitcher />);
+
+      await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+
+      await user.selectOptions(screen.getByLabelText('Theme'), 'dark');
+      expect(document.documentElement.classList.contains('dark')).toBe(true);
+    } finally {
+      getItemSpy.mockRestore();
+      setItemSpy.mockRestore();
+    }
+  });
+
+  it('settles on a single consistent theme when toggled rapidly (Phase 4 edge case)', async () => {
+    const user = userEvent.setup();
+    render(<ThemeSwitcher />);
+    await waitFor(() => expect(screen.getByLabelText('Theme')).toHaveValue('system'));
+
+    const select = screen.getByLabelText('Theme');
+    await user.selectOptions(select, 'dark');
+    await user.selectOptions(select, 'light');
+    await user.selectOptions(select, 'dark');
+
+    expect(select).toHaveValue('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
 });

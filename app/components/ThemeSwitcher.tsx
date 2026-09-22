@@ -10,6 +10,23 @@ function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'light' || value === 'dark' || value === 'system';
 }
 
+function readStoredTheme(): string | null {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(mode: ThemeMode) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // localStorage disabled/unavailable (e.g. private browsing) - the
+    // theme still applies for this page view, it just won't persist.
+  }
+}
+
 function prefersDark() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
@@ -28,7 +45,7 @@ export function ThemeSwitcher() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    const stored = readStoredTheme();
     setMode(isThemeMode(stored) ? stored : 'system');
     setMounted(true);
   }, []);
@@ -52,7 +69,7 @@ export function ThemeSwitcher() {
     if (!isThemeMode(next)) return;
 
     setMode(next);
-    localStorage.setItem(THEME_STORAGE_KEY, next);
+    writeStoredTheme(next);
   }
 
   return (
