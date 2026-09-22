@@ -24,6 +24,32 @@
     --radius: 0.75rem;
   }
 
+  /* Story 9564192: dark mode variants of the same shadcn/ui tokens above,
+     activated by the `dark` class on <html> (Tailwind's darkMode: 'class'
+     strategy, already configured in tailwind.config.js). Same token names
+     and structure as :root above so every component that already
+     references bg-background/text-foreground/etc. picks these up with no
+     per-component changes. */
+  .dark {
+    --background: 222 47% 9%;
+    --foreground: 210 40% 96%;
+    --card: 222 39% 13%;
+    --card-foreground: 210 40% 96%;
+    --primary: 176 65% 45%;
+    --primary-foreground: 222 47% 9%;
+    --secondary: 24 70% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 221 83% 65%;
+    --accent-foreground: 222 47% 9%;
+    --destructive: 4 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 221 83% 65%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
   }

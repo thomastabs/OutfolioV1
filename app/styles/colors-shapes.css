@@ -71,6 +71,53 @@
   --icon-color: var(--color-primary);
 }
 
+/* Story 9564192: this file defines a second, independent token system
+   from the shadcn/ui tokens in globals.css - its plain (non-@layer)
+   rules below (body, button, a, .empty-state, .state-indicator--*,
+   etc.) take cascade priority over globals.css's `@layer base` rules
+   regardless of file/import order, so dark mode needs its own values
+   here too, or most of the page would stay visually light. --icon-color
+   is a var() reference to --color-primary, not a literal, so it
+   inherits the dark value automatically without being redeclared. */
+.dark {
+  --color-primary: #2dd4bf;
+  --color-primary-dark: #0f766e;
+  --color-primary-light: #134e4a;
+  --color-secondary: #fb923c;
+  --color-secondary-dark: #c2410c;
+  --color-secondary-light: #431407;
+  --color-accent: #60a5fa;
+  --color-accent-soft: #1e3a5f;
+  --color-link: #2dd4bf;
+  --color-link-hover: #5eead4;
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-muted: #172033;
+  --color-overlay: rgba(2, 6, 23, 0.6);
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-disabled: #94a3b8;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-error: #f87171;
+  --color-error-soft: #451a1a;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #451a03;
+  --color-success: #34d399;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.35);
+  --color-state-draft-bg: #374151;
+  --color-state-draft-text: #e5e7eb;
+  --color-state-published-bg: #064e3b;
+  --color-state-published-text: #6ee7b7;
+  --color-state-private-bg: #7f1d1d;
+  --color-state-private-text: #fca5a5;
+  --color-state-unlisted-bg: #78350f;
+  --color-state-unlisted-text: #fcd34d;
+  --color-state-unpublished-bg: #312e81;
+  --color-state-unpublished-text: #a5b4fc;
+}
+
 * {
   box-sizing: border-box;
 }

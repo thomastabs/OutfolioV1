@@ -101,3 +101,42 @@ describe('Story 9556465 visual polish with Tailwind, shadcn/ui, and lucide-react
     expect(globals).toContain('color: inherit');
   });
 });
+
+describe('Story 9564192 dark mode support and theme switching', () => {
+  it('defines a .dark override for every shadcn/ui token declared on :root', () => {
+    const globals = readProjectFile('app/styles/globals.css');
+    const rootBlock = globals.match(/:root\s*{([^}]*)}/)?.[1] ?? '';
+    const darkBlock = globals.match(/\.dark\s*{([^}]*)}/)?.[1] ?? '';
+
+    const rootTokens = Array.from(rootBlock.matchAll(/--([a-z-]+):/g), (match) => match[1]);
+    expect(rootTokens.length).toBeGreaterThan(0);
+
+    for (const token of rootTokens) {
+      if (token === 'radius') continue; // shape, not a color - has no dark variant
+      expect(darkBlock).toContain(`--${token}:`);
+    }
+  });
+
+  it('defines a .dark override for every --color-* token declared on :root in colors-shapes.css, since its plain rules take cascade priority over globals.css\'s @layer base rules', () => {
+    const colorsShapes = readProjectFile('app/styles/colors-shapes.css');
+    const rootMatches = Array.from(colorsShapes.matchAll(/:root\s*{([^}]*)}/gs));
+    const rootBlock = rootMatches[0]?.[1] ?? '';
+    const darkBlock = colorsShapes.match(/\.dark\s*{([^}]*)}/s)?.[1] ?? '';
+
+    const literalColorTokens = Array.from(
+      rootBlock.matchAll(/--(color-[a-z-]+):(?!\s*var\()/g),
+      (match) => match[1],
+    );
+    expect(literalColorTokens.length).toBeGreaterThan(0);
+
+    for (const token of literalColorTokens) {
+      expect(darkBlock).toContain(`--${token}:`);
+    }
+  });
+
+  it('renders the ThemeSwitcher in the root layout so it appears on every page', () => {
+    const layout = readProjectFile('app/layout.tsx');
+
+    expect(layout).toContain('ThemeSwitcher');
+  });
+});
