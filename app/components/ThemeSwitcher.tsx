@@ -81,9 +81,9 @@ export function ThemeSwitcher() {
         value={mode}
         onChange={handleChange}
       >
-        <option value="light">Light ☀️</option>
-        <option value="dark">Dark 🌙</option>
-        <option value="system">System 🖥️</option>
+        <option value="light">Light 𖤓</option>
+        <option value="dark">Dark ☾</option>
+        <option value="system">System ◐</option>
       </select>
     </div>
   );
