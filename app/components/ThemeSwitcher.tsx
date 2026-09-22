@@ -77,7 +77,7 @@ export function ThemeSwitcher() {
       <label className="visually-hidden" htmlFor="theme-switcher">Theme</label>
       <select
         id="theme-switcher"
-        className="pr-8"
+        className="pr-6"
         value={mode}
         onChange={handleChange}
       >
